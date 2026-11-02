@@ -1,0 +1,7 @@
+{
+  "name": "quellcode-tests",
+  "private": true,
+  "description": "jsdom smoketest for Quellcode",
+  "scripts": { "test": "node smoketest.cjs" },
+  "devDependencies": { "jsdom": "^29.1.1" }
+}
