@@ -1,0 +1,8 @@
+# Runtime configuration with your Supabase project: copy config.example.js
+config.js
+# Output of the data pipeline
+pipeline/*.json
+pipeline/*.sql
+# Local tools
+node_modules/
+.DS_Store

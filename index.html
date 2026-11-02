@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="de" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>QUELLCODE</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0D1922">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="./fonts.css">
+<link rel="stylesheet" href="./vendor/maplibre-gl-4.7.1.css">
+<script src="./vendor/maplibre-gl-4.7.1.js"></script>
+<script src="./config.js"></script>
+<style>
+  :root{
+    --abyss:#05090E; --panel:#0D1922; --panel2:#122430;
+    --signal:#57E6D2; --amber:#F0B24A; --lost:#C2554A;
+    --utility:#7A93A5; --bright:#E8F2F4; --line:#1B2F3D;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace; --disp:'Space Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--abyss);color:var(--bright);font-family:var(--disp);
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+
+  header{background:linear-gradient(var(--panel),rgba(13,25,34,.94));
+    border-bottom:1px solid var(--line);padding:12px 14px 9px;z-index:30}
+  .brand{display:flex;align-items:baseline;justify-content:space-between}
+  .brand h1{font-size:21.5px;letter-spacing:.28em;font-weight:700}
+  .brand h1 span{color:var(--signal)}
+  .lang{font-family:var(--mono);font-size:13px;color:var(--utility);cursor:pointer;
+    background:none;border:none;padding:4px;letter-spacing:-.01em;text-align:right}
+  .lang b{color:var(--bright);font-weight:500}
+  .netbar{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-family:var(--mono);font-size:14.5px;letter-spacing:.05em}
+  .netbar .k{color:var(--utility)}
+  .netbar .v{color:var(--signal)}
+  .netbar .v.a{color:var(--amber)}
+  .netbar .v.l{color:var(--lost)}
+  .netbar .v.m{color:var(--utility)}
+
+  #map{flex:1;position:relative}
+  #map .maplibregl-ctrl-attrib{background:rgba(13,25,34,.9);font-size:12.5px;color:#C4D4DC;line-height:1.5}
+  #map .maplibregl-ctrl-attrib.maplibregl-compact-show{padding:5px 42px 5px 12px}
+  #map .maplibregl-ctrl-attrib-button{
+    background-color:rgba(13,25,34,.9) !important;
+    border-radius:50%;
+    background-image:url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='7.5' fill='none' stroke='%2357E6D2' stroke-width='1.5'/><text x='10' y='13.8' text-anchor='middle' font-family='Courier New,monospace' font-size='10.5' fill='%2357E6D2'>i</text></svg>") !important;
+  }
+  #map .maplibregl-ctrl-attrib a{color:var(--signal)}
+  .scan{position:absolute;inset:0;pointer-events:none;z-index:5;
+    background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(87,230,210,.012) 3px 4px)}
+
+  #notice{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+    background:var(--abyss);padding:24px;text-align:center;font-family:var(--mono);
+    font-size:14.5px;color:var(--amber);line-height:1.8}
+
+  /* ---- station sheet ---- */
+  #sheet{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:50;
+    background:var(--panel);border-top:1px solid var(--signal);padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+    transform:translateY(105%);transition:transform .28s ease;max-height:70dvh;overflow-y:auto}
+  #sheet.open{transform:translateY(0)}
+  @media (prefers-reduced-motion:reduce){#sheet{transition:none}}
+  .grab{width:38px;height:3px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+  .stationrow{display:flex;justify-content:space-between;align-items:baseline}
+  .stationno{font-family:var(--mono);font-size:15.5px;color:var(--signal);letter-spacing:.15em}
+  .close{background:none;border:none;color:var(--utility);font-family:var(--mono);font-size:20.5px;cursor:pointer;padding:2px 6px}
+  h2{font-size:26.5px;font-weight:500;margin-top:3px}
+  .sub{font-family:var(--mono);font-size:14.5px;color:var(--utility);margin-top:2px;line-height:1.6}
+
+  .meter{margin-top:13px;background:var(--panel2);border:1px solid var(--line);padding:11px;border-radius:2px}
+  .meter .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:15px;letter-spacing:.08em}
+  .meter .lab{color:var(--utility)}
+  .meter .val{font-weight:500}
+  .bars{display:flex;gap:4px;margin-top:8px;height:20px;align-items:flex-end}
+  .bars i{flex:1;background:var(--line)}
+  .bars i:nth-child(1){height:30%}.bars i:nth-child(2){height:45%}.bars i:nth-child(3){height:60%}
+  .bars i:nth-child(4){height:75%}.bars i:nth-child(5){height:90%}.bars i:nth-child(6){height:100%}
+  .confirm{font-family:var(--mono);font-size:14px;color:var(--utility);margin-top:8px}
+
+  .eyebrow{font-family:var(--mono);font-size:14.5px;color:var(--utility);letter-spacing:.2em;margin:15px 0 7px}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .actions button{font-family:var(--mono);font-size:15px;letter-spacing:.1em;padding:13px 4px;
+    background:transparent;border:1px solid var(--signal);color:var(--signal);cursor:pointer;border-radius:2px}
+  .actions button.ok{border-color:var(--signal);color:var(--signal)}
+  .actions button.bad{border-color:var(--lost);color:var(--lost)}
+  .actions button.grey{border-color:var(--utility);color:var(--utility)}
+  .actions button:disabled{opacity:.4}
+  .actions button:focus-visible{outline:2px solid var(--bright);outline-offset:2px}
+  .soon{font-family:var(--mono);font-size:14px;color:var(--utility);margin-top:14px;letter-spacing:.05em;line-height:1.7}
+
+  .stories .story{border-left:2px solid var(--line);padding:2px 0 2px 12px;font-size:18.5px;
+    line-height:1.55;color:#C4D4DC;margin-bottom:10px;white-space:pre-wrap}
+  .stories .story.witness{border-left-color:var(--amber)}
+  .more{display:block;margin-top:8px;background:transparent;border:1px solid var(--line);color:var(--signal);
+    font-family:var(--mono);font-size:14px;letter-spacing:.12em;padding:9px 12px;border-radius:2px;cursor:pointer;white-space:normal}
+  .ecWit{margin-top:14px;border-left:2px solid var(--amber);padding:2px 0 2px 13px}
+  .ecWit .wl{font-family:var(--mono);font-size:14px;color:var(--amber);letter-spacing:.14em}
+  .ecWit .wq{font-size:18px;line-height:1.55;color:#C4D4DC;margin-top:6px;font-style:italic}
+  #nwModal{position:fixed;inset:0;z-index:135;background:rgba(5,9,14,.94);display:flex;align-items:center;justify-content:center;padding:22px}
+  #nwModal[hidden]{display:none}
+  #nwCard{max-height:82dvh;overflow-y:auto}
+  #nwTag{font-family:var(--mono);font-size:14px;color:var(--amber);letter-spacing:.18em}
+  #nwCard h3#nwTitle{font-family:var(--disp);font-size:25px;line-height:1.3;letter-spacing:.01em;color:var(--bright);font-weight:600;margin-top:10px}
+  #nwBody{font-size:18.5px;line-height:1.6;color:#C4D4DC;margin-top:12px}
+  #nwRead{width:100%;margin-top:20px;background:var(--signal);color:var(--abyss);border:none;
+    font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:.15em;padding:13px;border-radius:2px;cursor:pointer}
+  #nwLater{width:100%;margin-top:10px;background:transparent;border:1px solid var(--line);color:var(--utility);
+    font-family:var(--mono);font-size:14px;letter-spacing:.15em;padding:12px;border-radius:2px;cursor:pointer}
+  .stories .sig{font-family:var(--mono);font-size:13px;color:var(--utility);margin-top:4px;display:block}
+  .none{font-family:var(--mono);font-size:14.5px;color:var(--utility)}
+
+  .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px}
+  .ph{aspect-ratio:1;background:var(--panel2);border:1px solid var(--line);overflow:hidden;padding:0}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph.add{display:flex;align-items:center;justify-content:center;color:var(--signal);
+    font-family:var(--mono);font-size:24px;border:1px dashed var(--signal);cursor:pointer;background:transparent}
+  .ph.add:disabled{opacity:.4}
+
+  .storyform{display:none;margin-top:10px}
+  .storyform.open{display:block}
+  .storyform textarea{width:100%;min-height:90px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--bright);font-family:var(--disp);font-size:19px;padding:10px;border-radius:2px;resize:vertical}
+  .storyform textarea:focus{outline:none;border-color:var(--signal)}
+  .storyform .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+
+  /* ---- signalquelle ---- */
+  #sqBtn{position:absolute;left:10px;bottom:36px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--utility);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #sqModal{position:fixed;inset:0;z-index:80;background:rgba(5,9,14,.92);
+    display:flex;align-items:flex-start;justify-content:center;
+    padding:22px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #sqModal[hidden]{display:none}
+  .sqCard{background:var(--panel);border:1px solid var(--signal);border-radius:2px;
+    max-width:400px;width:100%;padding:20px 18px;margin:auto}
+  .sqCard .head{display:flex;justify-content:space-between;align-items:baseline}
+  .sqCard h3{font-family:var(--mono);font-size:15.5px;letter-spacing:.24em;color:var(--signal);font-weight:500}
+  .sqCard .lore{font-size:18px;line-height:1.6;color:#C4D4DC;margin-top:12px;font-style:italic}
+  .sqLinks{margin-top:18px;display:grid;gap:9px}
+  .sqLinks a{display:block;border:1px solid var(--line);border-radius:2px;padding:13px 12px;
+    text-decoration:none;color:var(--bright);font-family:var(--mono);font-size:15px;letter-spacing:.1em}
+  .sqLinks a b{color:var(--signal);font-weight:500}
+  .sqLinks a span{display:block;font-size:12.5px;color:var(--utility);margin-top:3px;letter-spacing:.04em}
+  .sqCredits{font-family:var(--mono);font-size:12px;color:var(--utility);margin-top:8px;line-height:1.8}
+  .sqVersion{font-family:var(--mono);font-size:12px;color:var(--signal);margin-top:16px;letter-spacing:.14em}
+  .sqLegal{margin-top:10px}
+  .sqLegal a{font-family:var(--mono);font-size:12px;color:var(--utility);text-decoration:underline;
+    text-underline-offset:2px}
+  .sqLegal a:hover{color:var(--signal)}
+
+  /* ---- kiez challenge ---- */
+  #kzBtn{position:absolute;left:10px;bottom:80px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--signal);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #kzModal{position:fixed;inset:0;z-index:80;background:rgba(5,9,14,.92);
+    display:flex;align-items:center;justify-content:center;padding:22px}
+  #kzModal[hidden]{display:none}
+  .kzCard{max-height:80dvh;overflow-y:auto}
+  .kzTotal{font-family:var(--mono);font-size:14.5px;color:var(--amber);margin-top:12px;letter-spacing:.1em}
+  .kzRow{display:grid;grid-template-columns:20px 1fr 62px 56px;gap:8px;align-items:center;
+    margin-top:10px;font-family:var(--mono);font-size:14.5px}
+  .kzRow .rk{color:var(--utility);font-size:12.5px}
+  .kzRow .nm{color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kzRow .ct{color:var(--utility);font-size:12.5px;text-align:right}
+  .kzRow .pc{color:var(--signal);text-align:right}
+  .kzBar{grid-column:2 / 5;height:4px;background:var(--panel2);border:1px solid var(--line);position:relative}
+  .kzBar i{position:absolute;top:0;bottom:0}
+  .kzBar i.g{background:var(--signal)}
+  .kzBar i.b{background:var(--lost)}
+  .kzBar i.m{background:var(--utility)}
+  .kzEmpty{font-family:var(--mono);font-size:14px;color:var(--utility);margin-top:12px;line-height:1.7}
+
+  .ph{cursor:pointer}
+  #lightbox{position:fixed;inset:0;z-index:120;background:rgba(2,6,10,.96);
+    display:flex;align-items:center;justify-content:center}
+  #lightbox[hidden]{display:none}
+  #lightbox img{max-width:100vw;max-height:100dvh;object-fit:contain}
+  #lbClose{position:fixed;top:14px;right:14px;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--bright);font-family:var(--mono);
+    font-size:19px;padding:8px 13px;border-radius:2px;cursor:pointer}
+
+  /* ---- confirmation popup ---- */
+  #cfModal{position:fixed;inset:0;z-index:140;background:rgba(5,9,14,.92);
+    display:flex;align-items:center;justify-content:center;padding:26px}
+  #cfModal[hidden]{display:none}
+  #cfCard{background:var(--panel);border:1px solid var(--signal);border-radius:2px;
+    max-width:380px;width:100%;padding:20px 18px;text-align:center}
+  #cfCard.fail{border-color:var(--lost)}
+  #cfTitle{font-family:var(--mono);font-size:15px;letter-spacing:.2em;color:var(--signal)}
+  #cfCard.fail #cfTitle{color:var(--lost)}
+  #cfMsg{font-size:16px;line-height:1.6;color:#C4D4DC;margin-top:12px}
+  #cfOk{margin-top:18px;background:var(--signal);color:var(--abyss);border:none;
+    font-family:var(--mono);font-size:14.5px;font-weight:600;letter-spacing:.15em;
+    padding:13px 34px;border-radius:2px;cursor:pointer}
+  #cfCard.fail #cfOk{background:var(--lost);color:var(--bright)}
+
+  /* ---- gallery ---- */
+  #stBtn{position:absolute;left:10px;bottom:344px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--signal);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #stBtn.on{color:var(--abyss);background:var(--signal);border-color:var(--signal);font-weight:600}
+  #jnBtn{position:absolute;left:10px;bottom:124px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--signal);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #lgModal{position:fixed;inset:0;z-index:150;background:var(--abyss);
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  #lgModal[hidden]{display:none}
+  .lgCard{max-width:360px;width:100%}
+  .lgCard h3{font-family:var(--mono);font-size:14px;letter-spacing:.24em;color:var(--signal)}
+  .lgCard .sublabel{font-family:var(--mono);font-size:12px;color:var(--utility);margin-top:8px;line-height:1.6}
+  .lgCard button{width:100%;margin-top:9px;background:transparent;border:1px solid var(--line);
+    color:var(--bright);font-family:var(--disp);font-size:18px;padding:14px;border-radius:2px;cursor:pointer}
+  .lgCard button:hover{border-color:var(--signal)}
+
+  .helpList{margin-top:14px;display:grid;gap:7px}
+  .helpList button{background:transparent;border:1px solid var(--line);color:var(--signal);
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;padding:10px 12px;
+    border-radius:2px;cursor:pointer;text-align:left}
+  .helpTitle{font-family:var(--mono);font-size:12px;color:var(--utility);letter-spacing:.2em;margin-top:18px}
+
+  #inModal{position:fixed;inset:0;z-index:130;background:rgba(5,9,14,.94);
+    display:flex;align-items:center;justify-content:center;padding:22px}
+  #inModal[hidden]{display:none}
+  #inCard{max-height:82dvh;overflow-y:auto}
+  #inBody p{font-size:18px;line-height:1.6;color:#C4D4DC;margin-top:12px}
+  #inOk{width:100%;margin-top:20px;background:var(--signal);color:var(--abyss);border:none;
+    font-family:var(--mono);font-size:13.5px;font-weight:600;letter-spacing:.15em;
+    padding:13px;border-radius:2px;cursor:pointer}
+  .sqAgain{margin-top:14px;background:transparent;border:1px solid var(--line);color:var(--utility);
+    font-family:var(--mono);font-size:12px;letter-spacing:.1em;padding:10px 12px;
+    border-radius:2px;cursor:pointer;width:100%}
+
+
+  #ecBtn{position:absolute;left:10px;bottom:168px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--signal);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #ecModal{position:fixed;inset:0;z-index:90;background:rgba(5,9,14,.97);display:flex;flex-direction:column}
+  #ecModal[hidden]{display:none}
+  #ecNow{font-family:var(--mono);font-size:14px;color:var(--amber);letter-spacing:.14em;padding:0 16px 6px}
+  #ecList{flex:1;overflow-y:auto;padding:8px 16px 30px}
+  .ecCard{border-left:2px solid var(--signal);padding:2px 0 2px 13px;margin-bottom:22px}
+  .ecCard .yr{font-family:var(--mono);font-size:24px;color:var(--signal);letter-spacing:.06em}
+  .ecCard .tag{font-family:var(--mono);font-size:11.5px;color:var(--utility);letter-spacing:.14em;margin-top:2px}
+  .ecCard .body{font-size:18px;line-height:1.55;color:#C4D4DC;margin-top:8px}
+  .ecCard .src{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:11.5px;
+    color:var(--utility);letter-spacing:.1em;text-decoration:underline;text-underline-offset:2px}
+  .ecPend{font-family:var(--mono);font-size:13px;color:var(--utility);padding:4px 0 10px 15px;
+    border-left:2px solid var(--line);margin-bottom:12px}
+  .ecLock{font-family:var(--mono);font-size:13px;color:#4E6577;letter-spacing:.12em;padding:4px 0 16px 15px}
+  #ecPop{position:fixed;inset:0;z-index:140;background:rgba(5,9,14,.94);display:flex;
+    align-items:flex-start;justify-content:center;padding:22px;overflow-y:auto}
+  #ecPop[hidden]{display:none}
+  #ecPopCard{max-width:420px;width:100%;margin:auto;background:var(--panel);border:1px solid var(--signal);
+    border-radius:2px;padding:20px 18px}
+  #ecPopHead{font-family:var(--mono);font-size:26px;color:var(--signal);letter-spacing:.2em}
+  #ecPopSub{font-family:var(--mono);font-size:13px;color:var(--amber);letter-spacing:.08em;margin-top:6px}
+  #ecPopBody{margin-top:14px}
+  .ecPopBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+  .ecPopBtns button{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;padding:12px 6px;
+    border-radius:2px;cursor:pointer}
+  #ecPopAll{background:transparent;border:1px solid var(--line);color:var(--signal)}
+  #ecPopOk{background:var(--signal);border:none;color:var(--abyss);font-weight:600}
+
+  #stModal{position:fixed;inset:0;z-index:90;background:rgba(5,9,14,.97);display:flex;flex-direction:column}
+  #stModal[hidden]{display:none}
+  #stList{flex:1;overflow-y:auto;padding:12px 16px 30px}
+  .stCard{border-left:2px solid var(--line);padding:2px 0 2px 13px;margin-bottom:20px}
+  .stCard .body{font-size:18px;line-height:1.55;color:#C4D4DC;white-space:pre-wrap}
+  .stCard .meta{font-family:var(--mono);font-size:11.5px;color:var(--utility);margin-top:7px;
+    letter-spacing:.06em}
+  .stCard .go{margin-top:9px;background:transparent;border:1px solid var(--line);
+    color:var(--signal);font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;
+    padding:8px 12px;border-radius:2px;cursor:pointer}
+  .stEmpty{font-family:var(--mono);font-size:13px;color:var(--utility);padding:16px 0;line-height:1.7}
+
+  #pgBtn{position:absolute;left:10px;bottom:256px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--signal);color:var(--signal);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #pgBtn.on{background:var(--signal);color:var(--abyss);font-weight:600}
+  #pgSheet{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:55;
+    background:var(--panel);border-top:1px solid var(--signal);
+    padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+    transform:translateY(105%);transition:transform .28s ease}
+  #pgSheet.open{transform:translateY(0)}
+  @media (prefers-reduced-motion:reduce){#pgSheet{transition:none}}
+  .pgWrap{display:flex;align-items:center;gap:16px;margin-top:14px}
+  #pgArrow{width:94px;height:94px;flex:none;transition:transform .35s ease;opacity:.25}
+  #pgArrow.live{opacity:1}
+  @media (prefers-reduced-motion:reduce){#pgArrow{transition:none}}
+  #pgDist{font-family:var(--mono);font-size:33px;color:var(--signal);line-height:1.1}
+  #pgName{font-size:16px;color:var(--bright);margin-top:6px;line-height:1.4}
+  #pgHint{font-family:var(--mono);font-size:12.5px;margin-top:10px;min-height:16px;letter-spacing:.06em}
+  .pgActions{margin-top:16px}
+
+  #fnBtn{position:absolute;left:10px;bottom:300px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--utility);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #fnBtn.on{color:#8FD3F0;border-color:#3C6E8A}
+  #fnSheet{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:50;
+    background:var(--panel);border-top:1px solid #8FD3F0;
+    padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+    transform:translateY(105%);transition:transform .28s ease}
+  #fnSheet.open{transform:translateY(0)}
+  @media (prefers-reduced-motion:reduce){#fnSheet{transition:none}}
+  #fnSheet .stationno{color:#8FD3F0}
+  #fnNote{font-size:15px;line-height:1.6;color:#C4D4DC;margin-top:12px}
+  #fnOp{font-family:var(--mono);font-size:12px;color:var(--utility);margin-top:10px;line-height:1.7}
+
+  #glBtn{position:absolute;left:10px;bottom:212px;z-index:10;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--signal);font-family:var(--mono);font-size:12px;
+    letter-spacing:.18em;padding:8px 11px;border-radius:2px;cursor:pointer;backdrop-filter:blur(3px)}
+  #glModal{position:fixed;inset:0;z-index:90;background:rgba(5,9,14,.97);
+    display:flex;flex-direction:column}
+  #glModal[hidden]{display:none}
+  .glHead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .glHead h3{font-family:var(--mono);font-size:15.5px;letter-spacing:.24em;color:var(--signal);flex:1;font-weight:500}
+  .glZoom{background:transparent;border:1px solid var(--line);color:var(--bright);
+    font-family:var(--mono);font-size:17px;padding:6px 14px;border-radius:2px;cursor:pointer}
+  #glGrid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);
+    gap:6px;padding:10px;align-content:start}
+  #glGrid img{width:100%;aspect-ratio:1;object-fit:cover;display:block;cursor:pointer;
+    border:1px solid var(--line)}
+  .glEmpty{font-family:var(--mono);font-size:13px;color:var(--utility);padding:20px}
+  #lbGoto{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--signal);color:var(--abyss);border:none;font-family:var(--mono);
+    font-size:14.5px;font-weight:600;letter-spacing:.12em;padding:13px 20px;
+    border-radius:2px;cursor:pointer;white-space:nowrap}
+  #lbGoto[hidden]{display:none}
+  #lbEcho{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);
+    background:rgba(5,9,14,.85);color:var(--amber);border:1px solid var(--amber);font-family:var(--mono);
+    font-size:14.5px;font-weight:600;letter-spacing:.12em;padding:12px 20px;
+    border-radius:2px;cursor:pointer;white-space:nowrap}
+  #lbEcho[hidden]{display:none}
+  .ecOpen{display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer}
+  .ecOpen img{width:56px;height:56px;object-fit:cover;border:1px solid var(--line);flex:none}
+  .ecOpen span{font-family:var(--mono);font-size:12.5px;color:var(--signal);letter-spacing:.08em;line-height:1.5}
+  .ecNudge{font-family:var(--mono);font-size:13px;color:var(--amber);line-height:1.55;margin-top:12px}
+
+  #sRange{font-family:var(--mono);font-size:14px;margin-top:10px;letter-spacing:.08em;min-height:14px}
+  #sRange.tap,#pgHint.tap{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .meDot{width:18px;height:18px;border-radius:50%;background:var(--signal);border:3px solid #02060A;box-shadow:0 0 0 7px rgba(87,230,210,.25)}
+  #inRetry,#inChrome{width:100%;margin-top:12px;background:transparent;border:1px solid var(--signal);color:var(--signal);
+    font-family:var(--mono);font-size:13.5px;letter-spacing:.15em;padding:12px;border-radius:2px;cursor:pointer}
+  #inRetry[hidden],#inChrome[hidden]{display:none}
+  .toast{font-family:var(--mono);font-size:15px;color:var(--signal);margin-top:10px;min-height:14px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>QUELL<span>CODE</span></h1>
+    <button class="lang" id="langBtn" aria-label="Sprache wechseln"></button>
+  </div>
+  <div class="netbar">
+    <span><span class="k" data-i="working">EMPFANG</span> <span class="v" id="cW">–</span></span>
+    <span><span class="k" data-i="unknown">UNBESTÄTIGT</span> <span class="v a" id="cU">–</span></span>
+    <span><span class="k" data-i="broken">KEIN SIGNAL</span> <span class="v l" id="cB">–</span></span>
+    <span><span class="k" data-i="missing">VERSCHOLLEN</span> <span class="v m" id="cM">–</span></span>
+  </div>
+</header>
+
+<div id="map">
+  <div class="scan"></div>
+  <div id="notice"></div>
+  <button id="sqBtn">SIGNALQUELLE</button>
+  <button id="kzBtn">KIEZE</button>
+  <button id="glBtn" data-i="gallery">GALERIE</button>
+  <button id="fnBtn" data-i="fountains">TRINKBRUNNEN</button>
+  <button id="pgBtn" data-i="pgTitle">PEILUNG</button>
+  <button id="stBtn" data-i="voices">STIMMEN</button>
+  <button id="jnBtn" data-i="journal">JOURNAL</button>
+  <button id="ecBtn" data-i="echo">ECHO</button>
+</div>
+
+<div id="sqModal" hidden>
+  <div class="sqCard" role="dialog" aria-label="Signalquelle">
+    <div class="head">
+      <h3>SIGNALQUELLE</h3>
+      <button class="close" id="sqClose" aria-label="Schließen">✕</button>
+    </div>
+    <div class="lore" data-i="sqLore">Ein Ökosystem, das zwischen Objekten springt.</div>
+    <div class="sqLinks">
+      <a href="https://invisiblechaos.netlify.app" target="_blank" rel="noopener">
+        <b>INVISIBLECHAOS</b> ↗<span data-i="sqHub">Zurück zum Funkhaus</span></a>
+      <a href="https://ko-fi.com/invisiblechaos" target="_blank" rel="noopener">
+        <b data-i="sqEnergy">ENERGIE SENDEN</b> ↗<span>Ko-fi</span></a>
+    </div>
+    <div class="helpTitle" id="helpTitle"></div>
+    <div class="helpList" id="helpList"></div>
+    <div class="sqVersion" id="sqVersion"></div>
+    <div class="sqCredits" data-i="sqCredits">Pumpendaten © OpenStreetMap-Mitwirkende (ODbL) · Karte © CARTO · Beiträge der Gemeinschaft unter CC BY-SA</div>
+    <div class="sqLegal"><a href="https://invisiblechaos.netlify.app/impressum.html" target="_blank" rel="noopener">Impressum</a></div>
+  </div>
+</div>
+
+<div id="lightbox" hidden>
+  <img id="lbImg" alt="">
+  <button id="lbGoto" hidden></button>
+  <button id="lbEcho" hidden></button>
+  <button id="lbClose" aria-label="Schließen">✕</button>
+</div>
+
+<div id="lgModal" hidden>
+  <div class="sqCard lgCard" role="dialog" aria-label="Sprache">
+    <h3>QUELLCODE</h3>
+    <div class="sublabel">Sprache · Language · Langue · &#1071;&#1079;&#1099;&#1082; · Dil</div>
+    <div id="lgList"></div>
+  </div>
+</div>
+
+<div id="inModal" hidden>
+  <div class="sqCard" id="inCard" role="dialog" aria-labelledby="inTitle">
+    <div class="head"><h3 id="inTitle"></h3></div>
+    <div id="inBody"></div>
+    <button id="inChrome" hidden></button>
+    <button id="inRetry" hidden></button>
+    <button id="inOk"></button>
+  </div>
+</div>
+
+<div id="nwModal" hidden>
+  <div class="sqCard" id="nwCard" role="dialog" aria-labelledby="nwTitle">
+    <div id="nwTag"></div>
+    <h3 id="nwTitle"></h3>
+    <div id="nwBody"></div>
+    <button id="nwRead"></button>
+    <button id="nwLater"></button>
+  </div>
+</div>
+
+<div id="ecModal" hidden>
+  <div class="glHead">
+    <h3 data-i="echo">ECHO</h3>
+    <button class="close" id="ecClose" aria-label="Close">✕</button>
+  </div>
+  <div id="ecNow"></div>
+  <div id="ecList"></div>
+</div>
+
+<div id="ecPop" hidden>
+  <div id="ecPopCard" role="dialog">
+    <div id="ecPopHead"></div>
+    <div id="ecPopSub"></div>
+    <div id="ecPopBody"></div>
+    <div class="ecPopBtns">
+      <button id="ecPopAll"></button>
+      <button id="ecPopOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="stModal" hidden>
+  <div class="glHead">
+    <h3 data-i="journal">JOURNAL</h3>
+    <button class="close" id="stClose" aria-label="Schließen">✕</button>
+  </div>
+  <div id="stList"></div>
+</div>
+
+<div id="glModal" hidden>
+  <div class="glHead">
+    <h3 data-i="gallery">GALERIE</h3>
+    <button class="glZoom" id="glMinus" aria-label="Weniger Spalten">−</button>
+    <button class="glZoom" id="glPlus" aria-label="Mehr Spalten">+</button>
+    <button class="close" id="glClose" aria-label="Schließen">✕</button>
+  </div>
+  <div id="glGrid"></div>
+</div>
+
+<div id="cfModal" hidden>
+  <div id="cfCard" role="alertdialog" aria-labelledby="cfTitle">
+    <h3 id="cfTitle"></h3>
+    <div id="cfMsg"></div>
+    <button id="cfOk">OK</button>
+  </div>
+</div>
+
+<div id="kzModal" hidden>
+  <div class="sqCard kzCard" role="dialog" aria-label="Kiez-Funk">
+    <div class="head">
+      <h3 data-i="kzTitle">KIEZ-FUNK</h3>
+      <button class="close" id="kzClose" aria-label="Schließen">✕</button>
+    </div>
+    <div class="kzTotal" id="kzTotal"></div>
+    <div id="kzList"></div>
+  </div>
+</div>
+
+<section id="pgSheet" aria-label="Peilung">
+  <div class="grab"></div>
+  <div class="stationrow">
+    <span class="stationno" data-i="pgTitle">PEILUNG</span>
+    <button class="close" id="pgClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="sub" data-i="pgSub">NÄCHSTE UNBESTÄTIGTE STATION</div>
+  <div class="pgWrap">
+    <svg id="pgArrow" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#1B2F3D" stroke-width="2"/>
+      <path d="M50 12 L76 82 L50 64 L24 82 Z" fill="#57E6D2"/>
+    </svg>
+    <div>
+      <div id="pgDist">–</div>
+      <div id="pgName"></div>
+    </div>
+  </div>
+  <div id="pgHint"></div>
+  <div class="actions pgActions">
+    <button class="ok" id="pgGo"></button>
+    <button class="bad" id="pgSkip"></button>
+  </div>
+</section>
+
+<section id="fnSheet" aria-label="Trinkbrunnen">
+  <div class="grab"></div>
+  <div class="stationrow">
+    <span class="stationno" data-i="relay">RELAISPUNKT</span>
+    <button class="close" id="fnClose" aria-label="Schließen">✕</button>
+  </div>
+  <h2 id="fnName"></h2>
+  <div class="sub" id="fnSub"></div>
+  <div id="fnNote" data-i="fnDrinkable"></div>
+  <div id="fnOp"></div>
+</section>
+
+<section id="sheet" aria-label="Station">
+  <div class="grab"></div>
+  <div class="stationrow">
+    <span class="stationno" id="sNo"></span>
+    <button class="close" id="sClose" aria-label="Schließen">✕</button>
+  </div>
+  <h2 id="sName"></h2>
+  <div class="sub" id="sSub"></div>
+
+  <div class="meter">
+    <div class="row"><span class="lab" data-i="signal">SIGNAL</span><span class="val" id="sStatus"></span></div>
+    <div class="bars" id="sBars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="confirm" id="sConfirm"></div>
+  </div>
+
+  <div id="sRange"></div>
+
+  <div class="eyebrow" data-i="report">SIGNAL MELDEN</div>
+  <div class="actions">
+    <button class="ok" id="btnWorks"></button>
+    <button class="bad" id="btnBroken"></button>
+    <button class="grey" id="btnMissing" style="grid-column:1 / -1"></button>
+  </div>
+  <div class="toast" id="sToast"></div>
+
+  <div class="eyebrow" data-i="transmissions">EMPFANGENE ÜBERTRAGUNGEN</div>
+  <div class="stories" id="sStories"><span class="none" data-i="noStories">Noch keine. Sende die erste.</span></div>
+  <div class="actions" style="margin-top:10px">
+    <button class="ok" id="btnStory" style="grid-column:1 / -1"></button>
+  </div>
+  <div class="storyform" id="storyForm">
+    <textarea id="storyText" maxlength="2000"></textarea>
+    <div class="row2">
+      <button class="ok" id="btnStorySend" style="font-family:var(--mono);font-size:15px;letter-spacing:.1em;padding:12px 4px;background:var(--signal);color:var(--abyss);border:none;border-radius:2px;cursor:pointer"></button>
+      <button class="bad" id="btnStoryCancel" style="font-family:var(--mono);font-size:15px;letter-spacing:.1em;padding:12px 4px;background:transparent;border:1px solid var(--line);color:var(--utility);border-radius:2px;cursor:pointer"></button>
+    </div>
+  </div>
+
+  <div class="eyebrow" data-i="photos">FOTOS</div>
+  <div class="photos" id="sPhotos"></div>
+  <div class="soon" data-i="photoRule">Erstes Foto einer Station: bitte mit sichtbar der Brunnennummer.</div>
+  <input type="file" id="photoInput" accept="image/*" style="display:none">
+
+  <div class="soon" data-i="license">Beiträge sind anonym, werden vor Veröffentlichung geprüft und unter CC BY-SA geteilt.</div>
+</section>
+
+<script type="module">
+import { createClient } from './vendor/supabase-js-2.117.3.esm.js';
+
+// ================= CONFIG =================
+// Read from config.js (not in the repository; copy config.example.js).
+const CFG = window.QC_CONFIG || {};
+const SUPABASE_URL = CFG.supabaseUrl;
+const SUPABASE_PUBLISHABLE_KEY = CFG.supabaseKey;
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) throw new Error('config.js missing: copy config.example.js to config.js and fill in your Supabase project');
+// ==========================================
+
+const APP_VERSION = 'v1.44.0';   // keep in sync with the service worker cache name
+const COLORS = { working:'#57E6D2', unknown:'#F0B24A', broken:'#C2554A', missing:'#7A93A5' };
+const BARS   = { working:5, unknown:2, broken:0, missing:0 };
+
+const I18N = {
+  de: { working:'EMPFANG', unknown:'UNBEST\u00c4TIGT', broken:'KEIN SIGNAL',
+        signal:'SIGNAL', report:'SIGNAL MELDEN',
+        missing:'VERSCHOLLEN', stMissing:'VERSCHOLLEN \u00b7 NICHT AUFFINDBAR', missing2:'NICHT AUFFINDBAR',
+        stWorking:'STARK \u00b7 WASSER L\u00c4UFT', stUnknown:'UNBEST\u00c4TIGT', stBroken:'KEIN SIGNAL',
+        works:'WASSER L\u00c4UFT', broken2:'KEIN WASSER',
+        never:'Noch nie best\u00e4tigt', last:'Zuletzt best\u00e4tigt', reports:'Meldungen',
+        thanks:'\u00dcbertragung empfangen. Danke.', err:'Senden fehlgeschlagen, nochmal versuchen.',
+        station:'STATION', iron:'Gusseisen',
+        transmissions:'EMPFANGENE \u00dcBERTRAGUNGEN', noStories:'Noch keine. Sende die erste.',
+        photos:'FOTOS', tellStory:'GESCHICHTE SENDEN', send:'SENDEN', cancel:'ABBRECHEN',
+        storyPh:'Was hast du an diesem Brunnen erlebt?',
+        pendingThanks:'Empfangen. Wird gepr\u00fcft, dann ver\u00f6ffentlicht.',
+        tooShort:'Mindestens 10 Zeichen.', tooFast:'Kurz warten zwischen Beitr\u00e4gen.',
+        uploading:'\u00dcbertrage...',
+        license:'Beitr\u00e4ge sind anonym, werden vor Ver\u00f6ffentlichung gepr\u00fcft und unter CC BY-SA geteilt.',
+        sqLore:'Ein \u00d6kosystem, das zwischen Objekten springt.',
+        sqHub:'Zur\u00fcck zum Funkhaus', sqEnergy:'ENERGIE SENDEN',
+        sqCredits:'Pumpen- und Brunnendaten \u00a9 OpenStreetMap-Mitwirkende (ODbL) \u00b7 Kartenschema \u00a9 OpenMapTiles (BSD), Kacheln von OpenFreeMap, Ersatzkarte \u00a9 CARTO \u00b7 Maschinelle \u00dcbersetzungshilfe: MyMemory \u00b7 Schriften: Space Grotesk und IBM Plex Mono (SIL Open Font License) \u00b7 Karte: MapLibre GL (BSD) \u00b7 Ortsteile: Geoportal Berlin, ALKIS (dl-de/zero-2.0) \u00b7 Datenbank: Supabase (supabase-js, MIT) \u00b7 Beitr\u00e4ge der Gemeinschaft unter CC BY-SA 4.0',
+        kzTitle:'KIEZ-FUNK', kzReceived:'EMPFANGEN', kzNet:'GESAMTNETZ',
+        kzEmpty:'Noch keine Kiez-Zuordnung vorhanden.',
+        inRange:'IN REICHWEITE', outRange:'AUSSER REICHWEITE',
+        needLoc:'STANDORT FREIGEBEN, UM BEIZUTRAGEN', locWait:'SIGNAL WIRD GEORTET...', witness:"ZEITZEUGE", readStory:"ZUR GESCHICHTE", readMore:"WEITERLESEN", newsTag:"NEU BEI QUELLCODE", newsRead:"GESCHICHTE LESEN", newsLater:"SP\u00c4TER", locHelpShort:"HILFE", locStuck:"KEINE STANDORTABFRAGE? HIER TIPPEN", locHelpTitle:"STANDORT FREIGEBEN", locRetry:"ERNEUT ORTEN", openChrome:"IN CHROME \u00d6FFNEN", locateLbl:"Mein Standort", wvNote:"Quellcode l\u00e4uft gerade in der eingebauten Ansicht einer anderen App, zum Beispiel einer Mail-App. Dort fragt das Handy oft gar nicht nach dem Standort. \u00d6ffne Quellcode direkt in Chrome.", locHelpBody:["Quellcode braucht deinen Standort nur f\u00fcr eine Pr\u00fcfung: Stehst du h\u00f6chstens 30 Meter von der Pumpe entfernt? Der Standort bleibt auf deinem Handy und wird nie gesendet.", "Android mit Chrome: Tippe in der Adresszeile auf das Symbol links neben der Adresse, dann auf \u201eBerechtigungen\u201c, und stelle \u201eStandort\u201c auf \u201eZulassen\u201c.", "Android allgemein: Schalte den Standort in den Schnelleinstellungen ein. Unter Einstellungen > Apps > Chrome > Berechtigungen > Standort w\u00e4hle \u201eNur w\u00e4hrend der Nutzung zulassen\u201c.", "iPhone: Einstellungen > Datenschutz & Sicherheit > Ortungsdienste > Safari-Websites > \u201eBeim Verwenden der App\u201c.", "Aus einer Mail- oder Social-Media-App ge\u00f6ffnet? \u00d6ffne die Seite direkt im Browser. Danach auf ERNEUT ORTEN tippen."],
+        photoRule:'Regel: Das erste Foto einer Station zeigt ihre Brunnennummer, damit klar ist, welche Pumpe gemeint ist. Die Pr\u00fcfung achtet darauf.',
+        sentTitle:'\u00dcBERTRAGUNG EMPFANGEN', failTitle:'\u00dcBERTRAGUNG FEHLGESCHLAGEN',
+        gallery:'GALERIE', toStation:'ZUR STATION', glEmpty:'Noch keine ver\u00f6ffentlichten Fotos.',
+        fountains:'TRINKBRUNNEN', relay:'RELAISPUNKT',
+        pgTitle:'PEILUNG', pgSub:'N\u00c4CHSTE UNBEST\u00c4TIGTE STATION',
+        pgWalk:'Ein paar Schritte gehen, dann zeigt der Pfeil.', pgArrived:'ANGEKOMMEN',
+        pgNext:'N\u00c4CHSTE', pgNone:'Keine unbest\u00e4tigte Station gefunden.',
+        original:'Original', translated:'\u00dcbersetzt',
+        pgTipTitle:'PEILUNG',
+        pgTipBody:['Die Peilung f\u00fchrt Sie zur n\u00e4chsten Pumpe, die noch niemand gepr\u00fcft hat. Entfernung und Richtung aktualisieren sich beim Gehen.',
+          'Der Pfeil richtet sich nach Ihrer Bewegung, nicht nach dem Kompass. Nach ein paar Schritten wei\u00df er, wohin es geht.',
+          'Vor Ort gen\u00fcgt ein Tipp auf WASSER L\u00c4UFT oder KEIN WASSER. Ist die Pumpe nicht da, gibt es NICHT AUFFINDBAR. Passt die Station gerade nicht, f\u00fchrt N\u00c4CHSTE weiter.'],
+        jnTipTitle:'DAS JOURNAL',
+        jnTipBody:['Hier stehen die Geschichten, die an den Pumpen erz\u00e4hlt wurden. Wer f\u00fcllt hier die Gie\u00dfkanne, was stand fr\u00fcher an der Ecke, wer hat im Hitzesommer die B\u00e4ume der Stra\u00dfe gerettet.',
+          'Jede Geschichte f\u00fchrt zu ihrer Pumpe. Ein Tipp auf ZUR STATION, und die Karte fliegt hin.',
+          'Fast zweitausend Pumpen warten noch auf ihre erste Zeile. Wenn Sie an einer stehen, die Sie kennen, schreiben Sie sie auf. Zwei S\u00e4tze reichen.'],
+        helpTitle:'ANLEITUNGEN',
+        kzTipTitle:'KIEZ-FUNK',
+        kzTipBody:['Die Liste zeigt f\u00fcr jeden der 92 Ortsteile, wie viele Brunnen schon gepr\u00fcft wurden. Der Balken teilt sich auf: aqua f\u00fcr Pumpen mit Wasser, rot f\u00fcr trockene, grau f\u00fcr nicht auffindbare.',
+          'Kein Wettbewerb zwischen Menschen, sondern zwischen Kiezen. Die meisten stehen noch bei null. Ein Viertel mit ein paar Dutzend Brunnen schafft eine Person an einem Wochenende.'],
+        glTipTitle:'GALERIE',
+        glTipBody:['Alle ver\u00f6ffentlichten Fotos der Stadt an einem Ort, die neuesten zuerst. Mit \u2212 und + \u00e4ndern Sie die Anzahl der Spalten, von der \u00dcbersicht bis zum einzelnen Bild.',
+          'Ein Tipp auf ein Foto zeigt es gro\u00df, mit einem Weg zur zugeh\u00f6rigen Station.','Hat die Pumpe ein Jahr im ECHO geöffnet, führt ein zweiter Knopf zu diesem Jahr und seiner Geschichte übers Wasser.'],
+        fnTipTitle:'TRINKBRUNNEN',
+        fnTipBody:['Diese Ebene zeigt die 315 st\u00e4dtischen Trinkbrunnen zus\u00e4tzlich zu den Handpumpen. Sie sehen anders aus: helle Ringe statt gef\u00fcllter Punkte.',
+          'Der Unterschied ist wichtig. Aus den Trinkbrunnen kommt gepr\u00fcftes Trinkwasser, aus den Handpumpen nicht. Die meisten Trinkbrunnen laufen nur von Fr\u00fchjahr bis Herbst.'],
+        stTipTitle:'STIMMEN',
+        stTipBody:['Ist die Ebene an, bekommt jede Pumpe mit einer ver\u00f6ffentlichten Geschichte einen feinen Ring. So w\u00e4chst neben dem Zustand eine zweite Karte: die der erz\u00e4hlten Orte.',
+          'Zu lesen sind die Geschichten im Journal.'],
+        echo:'ECHO', ecNow:'JAHR', ecNext:'NÄCHSTES ECHO', ecPending:'Dieses Jahr wird noch recherchiert.', ecUnlocked:'Sie haben ein neues Jahr geöffnet.', ecAll:'ALLE ECHOS', ecSource:'QUELLE', th_berlin:'BERLIN', th_world:'WELT', th_ocean:'OZEAN', th_chronik:'CHRONIK', th_cat:'KATZE', th_yoga:'YOGA', dt_circa:'UNGEFÄHR', dt_era:'EPOCHE', dt_timeless:'ZEITLOS', dt_ca:'ca.', ecTipTitle:'ECHO', ecOpenedBy:'GEÖFFNET VON', ecNudgeNo:'Diese Pumpe hat noch kein Foto. Das erste, das veröffentlicht wird, wird zum Gesicht dieses Jahres.', ecNudgeHas:'Das erste Foto dieser Pumpe ist nun das Gesicht dieses Jahres.', ecTipBody:['Der Zähler der ungeprüften Pumpen ist auch eine Jahreszahl. Er begann bei 1968, und jede geprüfte Pumpe bringt die ganze Stadt ein Jahr weiter zurück in die Vergangenheit.','Jedes Jahr birgt eine Tatsache über Wasser: aus Berlin, der Welt, den Meeren, von Fluten und Dürren, manchmal von Katzen. Als ungefähr markierte Daten sind genau das. Wer die Pumpe prüft, die ein neues Jahr öffnet, liest es zuerst.','Jedes Jahr wurde von einer Pumpe geöffnet. Seine Karte zeigt, von welcher, mit dem ersten Foto der Pumpe. In der Galerie führt jedes Bild zurück zu dem Jahr, das seine Pumpe geöffnet hat.'], 
+        journal:'JOURNAL', introOk:'VERSTANDEN', introAgain:'EINF\u00dcHRUNG NOCHMAL ZEIGEN',
+        introTitle:'WILLKOMMEN',
+        introBody:['Quellcode ist eine Karte der fast zweitausend Handpumpen Berlins. Die meisten stehen seit \u00fcber hundert Jahren im Stra\u00dfenland.',
+          'Ob sie noch Wasser geben, wei\u00df niemand. Wer an einer Pumpe steht, kann melden, ob Wasser l\u00e4uft, ein Foto senden oder eine Erinnerung aufschreiben. Aus der Ferne geht das nicht, gemeldet wird vor Ort.',
+          'Die Handpumpen liefern kein Trinkwasser. Die 315 st\u00e4dtischen Trinkbrunnen lassen sich als eigene Ebene einblenden.',
+          'Kein Konto, keine Werbung, keine Verfolgung. Beitr\u00e4ge sind anonym und werden vor der Ver\u00f6ffentlichung gepr\u00fcft.'],
+        voices:'STIMMEN', vEmpty:'Noch keine Geschichten. Die erste k\u00f6nnte von Ihnen sein.',
+        prompts:['Wer holt hier Wasser?','Was stand hier fr\u00fcher?','Wann haben Sie diese Pumpe zuletzt benutzt?','Wem sind Sie hier schon begegnet?','Was passiert an dieser Ecke im Sommer?','Erinnern Sie sich an diese Pumpe von fr\u00fcher?'],
+        fnDrinkable:'Gepr\u00fcftes Trinkwasser der Berliner Wasserbetriebe. Anders als die Handpumpen, die kein Trinkwasser liefern.',
+        fnSeason:'Meist nur von Fr\u00fchjahr bis Herbst in Betrieb.', fnOperator:'Betrieb',
+        fnUnofficial:'Kein st\u00e4dtischer Trinkbrunnen. Herkunft ungepr\u00fcft.',
+        cfg:'Konfiguration fehlt: SUPABASE_URL und Key oben im Code eintragen.' },
+  en: { working:'RECEIVING', unknown:'UNVERIFIED', broken:'NO SIGNAL',
+        signal:'SIGNAL', report:'REPORT SIGNAL',
+        missing:'MISSING', stMissing:'MISSING \u00b7 NOT FOUND ON SITE', missing2:'NOT FOUND',
+        stWorking:'STRONG \u00b7 WATER RUNNING', stUnknown:'UNVERIFIED', stBroken:'NO SIGNAL',
+        works:'WATER RUNS', broken2:'NO WATER',
+        never:'Never confirmed yet', last:'Last confirmed', reports:'reports',
+        thanks:'Transmission received. Thanks.', err:'Sending failed, try again.',
+        station:'STATION', iron:'Cast iron',
+        transmissions:'RECEIVED TRANSMISSIONS', noStories:'None yet. Send the first.',
+        photos:'PHOTOS', tellStory:'SEND A STORY', send:'SEND', cancel:'CANCEL',
+        storyPh:'What happened at this pump?',
+        pendingThanks:'Received. Reviewed first, then published.',
+        tooShort:'At least 10 characters.', tooFast:'Wait a moment between contributions.',
+        uploading:'Transmitting...',
+        license:'Contributions are anonymous, reviewed before publishing, shared under CC BY-SA.',
+        sqLore:'An ecosystem that bounces between objects.',
+        sqHub:'Back to the hub', sqEnergy:'SEND ENERGY',
+        sqCredits:'Pump and fountain data \u00a9 OpenStreetMap contributors (ODbL) \u00b7 Map schema \u00a9 OpenMapTiles (BSD), tiles by OpenFreeMap, fallback basemap \u00a9 CARTO \u00b7 Machine translation help: MyMemory \u00b7 Typefaces: Space Grotesk and IBM Plex Mono (SIL Open Font License) \u00b7 Map engine: MapLibre GL (BSD) \u00b7 Districts: Geoportal Berlin, ALKIS (dl-de/zero-2.0) \u00b7 Database: Supabase (supabase-js, MIT) \u00b7 Community contributions under CC BY-SA 4.0',
+        kzTitle:'KIEZ RADIO', kzReceived:'RECEIVED', kzNet:'WHOLE NETWORK',
+        kzEmpty:'No Kiez assignment yet.',
+        inRange:'IN RANGE', outRange:'OUT OF RANGE',
+        needLoc:'ENABLE LOCATION TO CONTRIBUTE', locWait:'LOCATING SIGNAL...', witness:"WITNESS", readStory:"TO THE STORY", readMore:"READ MORE", newsTag:"NEW ON QUELLCODE", newsRead:"READ THE STORY", newsLater:"LATER", locHelpShort:"HELP", locStuck:"NO LOCATION PROMPT? TAP HERE", locHelpTitle:"ENABLE LOCATION", locRetry:"LOCATE AGAIN", openChrome:"OPEN IN CHROME", locateLbl:"My location", wvNote:"Quellcode is running inside another app\u2019s built-in view, for example a mail app. There the phone often never asks for your location. Open Quellcode directly in Chrome.", locHelpBody:["Quellcode needs your location for one check only: are you within 30 metres of the pump? Your location stays on your phone and is never sent.", "Android with Chrome: in the address bar, tap the icon left of the address, then \u201cPermissions\u201d, and set \u201cLocation\u201d to \u201cAllow\u201d.", "Android in general: turn on location in the quick settings. Under Settings > Apps > Chrome > Permissions > Location, choose \u201cAllow only while using the app\u201d.", "iPhone: Settings > Privacy & Security > Location Services > Safari Websites > \u201cWhile Using the App\u201d.", "Opened from a mail or social media app? Open the page directly in your browser. Then tap LOCATE AGAIN."],
+        photoRule:'Rule: the first photo of a station must show its pump number, so it is clear which pump this is. Moderation checks for this.',
+        sentTitle:'TRANSMISSION RECEIVED', failTitle:'TRANSMISSION FAILED',
+        gallery:'GALLERY', toStation:'TO THE STATION', glEmpty:'No published photos yet.',
+        fountains:'FOUNTAINS', relay:'RELAY POINT',
+        pgTitle:'BEARING', pgSub:'NEAREST UNVERIFIED STATION',
+        pgWalk:'Take a few steps, then the arrow points.', pgArrived:'ARRIVED',
+        pgNext:'NEXT', pgNone:'No unverified station found.',
+        original:'Original', translated:'Translated',
+        pgTipTitle:'BEARING',
+        pgTipBody:['Bearing points you at the nearest pump nobody has checked yet. Distance and direction update as you walk.',
+          'The arrow follows your movement, not a compass. After a few steps it knows which way you are heading.',
+          'At the pump, one tap on WATER RUNS or NO WATER is all it takes. If the pump is gone, there is NOT FOUND. If this one does not suit you, NEXT moves on.'],
+        jnTipTitle:'THE JOURNAL',
+        jnTipBody:['These are the stories told at the pumps. Who fills a watering can here, what used to stand on the corner, who saved the street trees in the hot summer.',
+          'Every story leads back to its pump. One tap on TO THE STATION and the map flies there.',
+          'Almost two thousand pumps are still waiting for their first line. If you are standing at one you know, write it down. Two sentences are enough.'],
+        helpTitle:'GUIDES',
+        kzTipTitle:'KIEZ RADIO',
+        kzTipBody:['The list shows, for each of the 92 Ortsteile, how many pumps have been checked. The bar splits up: aqua for pumps with water, red for dry ones, grey for those not found.',
+          'It is not a contest between people but between neighbourhoods. Most are still at zero. A quarter with a few dozen pumps is one person and one weekend.'],
+        glTipTitle:'GALLERY',
+        glTipBody:['Every published photo in the city in one place, newest first. Use \u2212 and + to change the number of columns, from overview to single image.',
+          'Tap a photo to see it large, with a way through to its station.','If the pump opened a year in ECHO, a second button takes you to that year and its water fact.'],
+        fnTipTitle:'FOUNTAINS',
+        fnTipBody:['This layer adds the 315 municipal drinking fountains to the hand pumps. They look different: pale rings instead of filled dots.',
+          'The difference matters. Fountains give tested drinking water, hand pumps do not. Most fountains run only from spring to autumn.'],
+        stTipTitle:'VOICES',
+        stTipBody:['With this layer on, every pump carrying a published story gets a thin ring. A second map grows alongside the water one: the map of places that have been talked about.',
+          'The stories themselves are in the Journal.'],
+        echo:'ECHO', ecNow:'YEAR', ecNext:'NEXT ECHO', ecPending:'This year is still being researched.', ecUnlocked:'You opened a new year.', ecAll:'ALL ECHOES', ecSource:'SOURCE', th_berlin:'BERLIN', th_world:'WORLD', th_ocean:'OCEAN', th_chronik:'CHRONICLE', th_cat:'CAT', th_yoga:'YOGA', dt_circa:'APPROX.', dt_era:'ERA', dt_timeless:'TIMELESS', dt_ca:'c.', ecTipTitle:'ECHO', ecOpenedBy:'OPENED BY', ecNudgeNo:'This pump has no photo yet. The first one published becomes the face of this year.', ecNudgeHas:'The first photo of this pump is now the face of this year.', ecTipBody:['The counter of unchecked pumps is also a year. It started at 1968, and every pump someone checks takes the whole city one year further back in time.','Each year holds one fact about water: Berlin, the world, the oceans, floods and droughts, sometimes cats. Dates marked as approximate are exactly that. Whoever checks the pump that opens a new year reads it first.','Every year was opened by one pump. Its card shows which one, with the pump’s first photo. In the Gallery, each picture leads back to the year its pump opened.'], 
+        journal:'JOURNAL', introOk:'GOT IT', introAgain:'SHOW THE INTRODUCTION AGAIN',
+        introTitle:'WELCOME',
+        introBody:['Quellcode maps the nearly two thousand hand pumps of Berlin. Most have stood in the street for more than a hundred years.',
+          'Nobody knows how many still give water. Anyone standing at a pump can report whether water runs, send a photo, or write down a memory. It cannot be done from a distance, only on the spot.',
+          'The hand pumps are not drinking water. The 315 municipal drinking fountains can be shown as a separate layer.',
+          'No account, no ads, no tracking. Contributions are anonymous and reviewed before publishing.'],
+        voices:'VOICES', vEmpty:'No stories yet. The first could be yours.',
+        prompts:['Who fetches water here?','What used to stand here?','When did you last use this pump?','Who have you met at this corner?','What happens here in summer?','Do you remember this pump from before?'],
+        fnDrinkable:'Tested drinking water from the Berlin water utility. Unlike the hand pumps, which do not deliver drinking water.',
+        fnSeason:'Usually running from spring to autumn only.', fnOperator:'Operator',
+        fnUnofficial:'Not a municipal drinking fountain. Source unverified.',
+        cfg:'Config missing: set SUPABASE_URL and key at the top of the code.' },
+  fr: { working:'R\u00c9CEPTION', unknown:'NON V\u00c9RIFI\u00c9', broken:'AUCUN SIGNAL',
+        signal:'SIGNAL', report:'SIGNALER L\u2019\u00c9TAT',
+        missing:'INTROUVABLE', stMissing:'INTROUVABLE \u00b7 PAS SUR PLACE', missing2:'INTROUVABLE',
+        stWorking:'FORT \u00b7 L\u2019EAU COULE', stUnknown:'NON V\u00c9RIFI\u00c9', stBroken:'AUCUN SIGNAL',
+        works:'L\u2019EAU COULE', broken2:'PAS D\u2019EAU',
+        never:'Jamais confirm\u00e9', last:'Derni\u00e8re confirmation', reports:'signalements',
+        thanks:'Transmission re\u00e7ue. Merci.', err:'\u00c9chec de l\u2019envoi, r\u00e9essayez.',
+        station:'STATION', iron:'Fonte',
+        transmissions:'TRANSMISSIONS RE\u00c7UES', noStories:'Aucune pour l\u2019instant. Envoyez la premi\u00e8re.',
+        photos:'PHOTOS', tellStory:'ENVOYER UNE HISTOIRE', send:'ENVOYER', cancel:'ANNULER',
+        storyPh:'Que s\u2019est-il pass\u00e9 \u00e0 cette pompe ?',
+        pendingThanks:'Re\u00e7u. V\u00e9rifi\u00e9 avant publication.',
+        tooShort:'Au moins 10 caract\u00e8res.', tooFast:'Patientez entre deux contributions.',
+        uploading:'Transmission...',
+        license:'Les contributions sont anonymes, v\u00e9rifi\u00e9es avant publication et partag\u00e9es sous CC BY-SA.',
+        sqLore:'Un \u00e9cosyst\u00e8me qui rebondit entre les objets.',
+        sqHub:'Retour au studio', sqEnergy:'ENVOYER DE L\u2019\u00c9NERGIE',
+        sqCredits:'Donn\u00e9es des pompes et fontaines \u00a9 contributeurs OpenStreetMap (ODbL) \u00b7 Sch\u00e9ma de carte \u00a9 OpenMapTiles (BSD), tuiles par OpenFreeMap, fond de secours \u00a9 CARTO \u00b7 Aide \u00e0 la traduction automatique\u00a0: MyMemory \u00b7 Polices\u00a0: Space Grotesk et IBM Plex Mono (SIL Open Font License) \u00b7 Moteur cartographique\u00a0: MapLibre GL (BSD) \u00b7 Quartiers\u00a0: Geoportal Berlin, ALKIS (dl-de/zero-2.0) \u00b7 Base de donn\u00e9es\u00a0: Supabase (supabase-js, MIT) \u00b7 Contributions de la communaut\u00e9 sous CC BY-SA 4.0',
+        kzTitle:'RADIO KIEZ', kzReceived:'RE\u00c7U', kzNet:'R\u00c9SEAU ENTIER',
+        kzEmpty:'Pas encore d\u2019affectation par Kiez.',
+        inRange:'\u00c0 PORT\u00c9E', outRange:'HORS DE PORT\u00c9E',
+        needLoc:'ACTIVEZ LA LOCALISATION POUR CONTRIBUER', locWait:'LOCALISATION DU SIGNAL...', witness:"T\u00c9MOIN", readStory:"VERS LE R\u00c9CIT", readMore:"LIRE LA SUITE", newsTag:"NOUVEAU SUR QUELLCODE", newsRead:"LIRE LE R\u00c9CIT", newsLater:"PLUS TARD", locHelpShort:"AIDE", locStuck:"PAS DE DEMANDE DE POSITION\u00a0? TOUCHEZ ICI", locHelpTitle:"ACTIVER LA LOCALISATION", locRetry:"RELOCALISER", openChrome:"OUVRIR DANS CHROME", locateLbl:"Ma position", wvNote:"Quellcode s\u2019ouvre en ce moment dans la vue int\u00e9gr\u00e9e d\u2019une autre appli, par exemple une appli de messagerie. L\u00e0, le t\u00e9l\u00e9phone ne demande souvent jamais la position. Ouvrez Quellcode directement dans Chrome.", locHelpBody:["Quellcode n\u2019utilise votre position que pour une seule v\u00e9rification\u00a0: \u00eates-vous \u00e0 30\u00a0m\u00e8tres au plus de la pompe\u00a0? La position reste sur votre t\u00e9l\u00e9phone et n\u2019est jamais envoy\u00e9e.", "Android avec Chrome\u00a0: dans la barre d\u2019adresse, touchez l\u2019ic\u00f4ne \u00e0 gauche de l\u2019adresse, puis \u00ab\u00a0Autorisations\u00a0\u00bb, et r\u00e9glez \u00ab\u00a0Position\u00a0\u00bb sur \u00ab\u00a0Autoriser\u00a0\u00bb.", "Android en g\u00e9n\u00e9ral\u00a0: activez la localisation dans les r\u00e9glages rapides. Dans Param\u00e8tres > Applications > Chrome > Autorisations > Position, choisissez \u00ab\u00a0Autoriser seulement si l\u2019appli est en cours d\u2019utilisation\u00a0\u00bb.", "iPhone\u00a0: R\u00e9glages > Confidentialit\u00e9 et s\u00e9curit\u00e9 > Service de localisation > Sites web Safari > \u00ab\u00a0Lorsque l\u2019app est active\u00a0\u00bb.", "Ouvert depuis une appli de messagerie ou un r\u00e9seau social\u00a0? Ouvrez la page directement dans le navigateur. Puis touchez RELOCALISER."],
+        photoRule:'R\u00e8gle : la premi\u00e8re photo d\u2019une station doit montrer son num\u00e9ro de fontaine, pour savoir de quelle pompe il s\u2019agit. La mod\u00e9ration y veille.',
+        sentTitle:'TRANSMISSION RE\u00c7UE', failTitle:'\u00c9CHEC DE LA TRANSMISSION',
+        gallery:'GALERIE', toStation:'VERS LA STATION', glEmpty:'Pas encore de photos publi\u00e9es.',
+        fountains:'FONTAINES', relay:'POINT RELAIS',
+        pgTitle:'REL\u00c8VEMENT', pgSub:'STATION NON V\u00c9RIFI\u00c9E LA PLUS PROCHE',
+        pgWalk:'Faites quelques pas, la fl\u00e8che s\u2019oriente ensuite.', pgArrived:'ARRIV\u00c9',
+        pgNext:'SUIVANTE', pgNone:'Aucune station non v\u00e9rifi\u00e9e trouv\u00e9e.',
+        original:'Original', translated:'Traduit',
+        pgTipTitle:'REL\u00c8VEMENT',
+        pgTipBody:['Le rel\u00e8vement vous m\u00e8ne \u00e0 la pompe non v\u00e9rifi\u00e9e la plus proche. Distance et direction se mettent \u00e0 jour en marchant.',
+          'La fl\u00e8che suit votre d\u00e9placement, pas une boussole. Quelques pas suffisent pour qu\u2019elle s\u2019oriente.',
+          'Sur place, une touche sur L\u2019EAU COULE ou PAS D\u2019EAU suffit. Si la pompe a disparu, il y a INTROUVABLE. Si celle-ci ne convient pas, SUIVANTE prend le relais.'],
+        jnTipTitle:'LE JOURNAL',
+        jnTipBody:['Ici se rassemblent les histoires racont\u00e9es aux pompes. Qui remplit un arrosoir, ce qui se trouvait au coin de la rue autrefois, qui a sauv\u00e9 les arbres pendant l\u2019\u00e9t\u00e9 de canicule.',
+          'Chaque histoire ram\u00e8ne \u00e0 sa pompe. Une touche sur VERS LA STATION et la carte s\u2019y rend.',
+          'Pr\u00e8s de deux mille pompes attendent encore leur premi\u00e8re ligne. Si vous en connaissez une, \u00e9crivez-la. Deux phrases suffisent.'],
+        helpTitle:'MODES D\u2019EMPLOI',
+        kzTipTitle:'RADIO KIEZ',
+        kzTipBody:['La liste indique, pour chacun des 92 quartiers, combien de pompes ont \u00e9t\u00e9 v\u00e9rifi\u00e9es. La barre se divise : aqua pour les pompes qui donnent de l\u2019eau, rouge pour les s\u00e8ches, gris pour les introuvables.',
+          'Ce n\u2019est pas une comp\u00e9tition entre personnes mais entre quartiers. La plupart sont encore \u00e0 z\u00e9ro. Un quartier de quelques dizaines de pompes, c\u2019est une personne et un week-end.'],
+        glTipTitle:'GALERIE',
+        glTipBody:['Toutes les photos publi\u00e9es de la ville au m\u00eame endroit, les plus r\u00e9centes d\u2019abord. Les touches \u2212 et + changent le nombre de colonnes, de la vue d\u2019ensemble \u00e0 l\u2019image seule.',
+          'Une touche sur une photo l\u2019affiche en grand, avec un passage vers sa station.','Si la pompe a ouvert une année dans ÉCHO, un second bouton mène à cette année et à son fait sur l’eau.'],
+        fnTipTitle:'FONTAINES',
+        fnTipBody:['Cette couche ajoute les 315 fontaines municipales aux pompes \u00e0 bras. Elles se distinguent : anneaux clairs au lieu de points pleins.',
+          'La diff\u00e9rence compte. Les fontaines donnent de l\u2019eau potable contr\u00f4l\u00e9e, les pompes \u00e0 bras non. La plupart des fontaines ne fonctionnent que du printemps \u00e0 l\u2019automne.'],
+        stTipTitle:'VOIX',
+        stTipBody:['Quand la couche est active, chaque pompe portant une histoire publi\u00e9e re\u00e7oit un fin anneau. Une seconde carte pousse \u00e0 c\u00f4t\u00e9 de celle de l\u2019eau : celle des lieux racont\u00e9s.',
+          'Les histoires elles-m\u00eames sont dans le Journal.'],
+        echo:'ÉCHO', ecNow:'ANNÉE', ecNext:'PROCHAIN ÉCHO', ecPending:'Cette année est encore en recherche.', ecUnlocked:'Vous avez ouvert une nouvelle année.', ecAll:'TOUS LES ÉCHOS', ecSource:'SOURCE', th_berlin:'BERLIN', th_world:'MONDE', th_ocean:'OCÉAN', th_chronik:'CHRONIQUE', th_cat:'CHAT', th_yoga:'YOGA', dt_circa:'APPROX.', dt_era:'ÉPOQUE', dt_timeless:'INTEMPOREL', dt_ca:'vers', ecTipTitle:'ÉCHO', ecOpenedBy:'OUVERT PAR', ecNudgeNo:'Cette pompe n’a pas encore de photo. La première publiée deviendra le visage de cette année.', ecNudgeHas:'La première photo de cette pompe devient le visage de cette année.', ecTipBody:['Le compteur des pompes non vérifiées est aussi une année. Il a commencé à 1968, et chaque pompe vérifiée fait reculer toute la ville d’un an dans le temps.','Chaque année renferme un fait sur l’eau : Berlin, le monde, les océans, les crues et les sécheresses, parfois les chats. Les dates marquées comme approximatives le sont vraiment. Qui vérifie la pompe qui ouvre une nouvelle année la lit en premier.','Chaque année a été ouverte par une pompe. Sa carte indique laquelle, avec la première photo de la pompe. Dans la Galerie, chaque image ramène à l’année que sa pompe a ouverte.'], 
+        journal:'JOURNAL', introOk:'COMPRIS', introAgain:'REVOIR L\u2019INTRODUCTION',
+        introTitle:'BIENVENUE',
+        introBody:['Quellcode cartographie les pr\u00e8s de deux mille pompes \u00e0 bras de Berlin. La plupart sont dans la rue depuis plus de cent ans.',
+          'Personne ne sait combien donnent encore de l\u2019eau. Qui se trouve devant une pompe peut signaler si l\u2019eau coule, envoyer une photo ou \u00e9crire un souvenir. Impossible \u00e0 distance, cela se fait sur place.',
+          'Les pompes \u00e0 bras ne donnent pas d\u2019eau potable. Les 315 fontaines municipales s\u2019affichent en couche s\u00e9par\u00e9e.',
+          'Pas de compte, pas de publicit\u00e9, pas de tra\u00e7age. Les contributions sont anonymes et v\u00e9rifi\u00e9es avant publication.'],
+        voices:'VOIX', vEmpty:'Pas encore d\u2019histoires. La premi\u00e8re pourrait \u00eatre la v\u00f4tre.',
+        prompts:['Qui vient chercher de l\u2019eau ici ?','Qu\u2019y avait-il ici avant ?','Quand avez-vous utilis\u00e9 cette pompe pour la derni\u00e8re fois ?','Qui avez-vous crois\u00e9 \u00e0 ce coin de rue ?','Que se passe-t-il ici l\u2019\u00e9t\u00e9 ?','Vous souvenez-vous de cette pompe autrefois ?'],
+        fnDrinkable:'Eau potable contr\u00f4l\u00e9e par la r\u00e9gie des eaux de Berlin. Contrairement aux pompes \u00e0 bras, qui ne fournissent pas d\u2019eau potable.',
+        fnSeason:'En service surtout du printemps \u00e0 l\u2019automne.', fnOperator:'Exploitant',
+        fnUnofficial:'Pas une fontaine municipale. Origine non v\u00e9rifi\u00e9e.',
+        cfg:'Configuration manquante : renseignez SUPABASE_URL et la cl\u00e9 en haut du code.' },
+  ru: { working:'\u041f\u0420\u0418\u0401\u041c', unknown:'\u041d\u0415 \u041f\u041e\u0414\u0422\u0412\u0415\u0420\u0416\u0414\u0415\u041d\u041e', broken:'\u041d\u0415\u0422 \u0421\u0418\u0413\u041d\u0410\u041b\u0410',
+        signal:'\u0421\u0418\u0413\u041d\u0410\u041b', report:'\u0421\u041e\u041e\u0411\u0429\u0418\u0422\u042c \u041e \u0421\u0418\u0413\u041d\u0410\u041b\u0415',
+        missing:'\u041d\u0415 \u041d\u0410\u0419\u0414\u0415\u041d\u0410', stMissing:'\u041d\u0415 \u041d\u0410\u0419\u0414\u0415\u041d\u0410 \u041d\u0410 \u041c\u0415\u0421\u0422\u0415', missing2:'\u041d\u0415 \u041d\u0410\u0419\u0414\u0415\u041d\u0410',
+        stWorking:'\u0421\u0418\u041b\u042c\u041d\u042b\u0419 \u00b7 \u0412\u041e\u0414\u0410 \u0418\u0414\u0401\u0422', stUnknown:'\u041d\u0415 \u041f\u041e\u0414\u0422\u0412\u0415\u0420\u0416\u0414\u0415\u041d\u041e', stBroken:'\u041d\u0415\u0422 \u0421\u0418\u0413\u041d\u0410\u041b\u0410',
+        works:'\u0412\u041e\u0414\u0410 \u0418\u0414\u0401\u0422', broken2:'\u0412\u041e\u0414\u042b \u041d\u0415\u0422',
+        never:'\u0415\u0449\u0451 \u043d\u0435 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u043e', last:'\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0435\u0435 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435', reports:'\u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439',
+        thanks:'\u041f\u0435\u0440\u0435\u0434\u0430\u0447\u0430 \u043f\u0440\u0438\u043d\u044f\u0442\u0430. \u0421\u043f\u0430\u0441\u0438\u0431\u043e.', err:'\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c, \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
+        station:'\u0421\u0422\u0410\u041d\u0426\u0418\u042f', iron:'\u0427\u0443\u0433\u0443\u043d',
+        transmissions:'\u041f\u0420\u0418\u041d\u042f\u0422\u042b\u0415 \u041f\u0415\u0420\u0415\u0414\u0410\u0427\u0418', noStories:'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442. \u041e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 \u043f\u0435\u0440\u0432\u0443\u044e.',
+        photos:'\u0424\u041e\u0422\u041e', tellStory:'\u041e\u0422\u041f\u0420\u0410\u0412\u0418\u0422\u042c \u0418\u0421\u0422\u041e\u0420\u0418\u042e', send:'\u041e\u0422\u041f\u0420\u0410\u0412\u0418\u0422\u042c', cancel:'\u041e\u0422\u041c\u0415\u041d\u0410',
+        storyPh:'\u0427\u0442\u043e \u043f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u043e \u0443 \u044d\u0442\u043e\u0439 \u043a\u043e\u043b\u043e\u043d\u043a\u0438?',
+        pendingThanks:'\u041f\u0440\u0438\u043d\u044f\u0442\u043e. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430, \u043f\u043e\u0442\u043e\u043c \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044f.',
+        tooShort:'\u041c\u0438\u043d\u0438\u043c\u0443\u043c 10 \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432.', tooFast:'\u041f\u043e\u0434\u043e\u0436\u0434\u0438\u0442\u0435 \u043d\u0435\u043c\u043d\u043e\u0433\u043e \u043c\u0435\u0436\u0434\u0443 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0430\u043c\u0438.',
+        uploading:'\u041f\u0435\u0440\u0435\u0434\u0430\u0447\u0430...',
+        license:'\u0412\u043a\u043b\u0430\u0434\u044b \u0430\u043d\u043e\u043d\u0438\u043c\u043d\u044b, \u043f\u0440\u043e\u0432\u0435\u0440\u044f\u044e\u0442\u0441\u044f \u043f\u0435\u0440\u0435\u0434 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u0435\u0439 \u0438 \u043f\u0443\u0431\u043b\u0438\u043a\u0443\u044e\u0442\u0441\u044f \u043f\u043e\u0434 CC BY-SA.',
+        sqLore:'\u042d\u043a\u043e\u0441\u0438\u0441\u0442\u0435\u043c\u0430, \u043a\u043e\u0442\u043e\u0440\u0430\u044f \u043f\u0435\u0440\u0435\u0441\u043a\u0430\u043a\u0438\u0432\u0430\u0435\u0442 \u043c\u0435\u0436\u0434\u0443 \u043e\u0431\u044a\u0435\u043a\u0442\u0430\u043c\u0438.',
+        sqHub:'\u041d\u0430\u0437\u0430\u0434 \u0432 \u0441\u0442\u0443\u0434\u0438\u044e', sqEnergy:'\u041e\u0422\u041f\u0420\u0410\u0412\u0418\u0422\u042c \u042d\u041d\u0415\u0420\u0413\u0418\u042e',
+        sqCredits:'\u0414\u0430\u043d\u043d\u044b\u0435 \u043a\u043e\u043b\u043e\u043d\u043e\u043a \u0438 \u0444\u043e\u043d\u0442\u0430\u043d\u0447\u0438\u043a\u043e\u0432 \u00a9 \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u0438 OpenStreetMap (ODbL) \u00b7 \u0421\u0445\u0435\u043c\u0430 \u043a\u0430\u0440\u0442\u044b \u00a9 OpenMapTiles (BSD), \u0442\u0430\u0439\u043b\u044b OpenFreeMap, \u0437\u0430\u043f\u0430\u0441\u043d\u0430\u044f \u043a\u0430\u0440\u0442\u0430 \u00a9 CARTO \u00b7 \u041c\u0430\u0448\u0438\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0435\u0432\u043e\u0434: MyMemory \u00b7 \u0428\u0440\u0438\u0444\u0442\u044b: Space Grotesk \u0438 IBM Plex Mono (SIL Open Font License) \u00b7 \u041a\u0430\u0440\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0434\u0432\u0438\u0436\u043e\u043a: MapLibre GL (BSD) \u00b7 \u0420\u0430\u0439\u043e\u043d\u044b: Geoportal Berlin, ALKIS (dl-de/zero-2.0) \u00b7 \u0411\u0430\u0437\u0430 \u0434\u0430\u043d\u043d\u044b\u0445: Supabase (supabase-js, MIT) \u00b7 \u0412\u043a\u043b\u0430\u0434\u044b \u0441\u043e\u043e\u0431\u0449\u0435\u0441\u0442\u0432\u0430 \u043f\u043e\u0434 CC BY-SA 4.0',
+        kzTitle:'\u041a\u0418\u0426-\u0420\u0410\u0414\u0418\u041e', kzReceived:'\u041f\u0420\u0418\u041d\u042f\u0422\u041e', kzNet:'\u0412\u0421\u042f \u0421\u0415\u0422\u042c',
+        kzEmpty:'\u0420\u0430\u0439\u043e\u043d\u044b \u0435\u0449\u0451 \u043d\u0435 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u044b.',
+        inRange:'\u0412 \u0417\u041e\u041d\u0415 \u041f\u0420\u0418\u0401\u041c\u0410', outRange:'\u0412\u041d\u0415 \u0417\u041e\u041d\u042b \u041f\u0420\u0418\u0401\u041c\u0410',
+        needLoc:'\u0412\u041a\u041b\u042e\u0427\u0418\u0422\u0415 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u042e, \u0427\u0422\u041e\u0411\u042b \u0423\u0427\u0410\u0421\u0422\u0412\u041e\u0412\u0410\u0422\u042c', locWait:'\u041f\u041e\u0418\u0421\u041a \u0421\u0418\u0413\u041d\u0410\u041b\u0410...', witness:"\u0421\u0412\u0418\u0414\u0415\u0422\u0415\u041b\u042c", readStory:"\u041a \u0420\u0410\u0421\u0421\u041a\u0410\u0417\u0423", readMore:"\u0427\u0418\u0422\u0410\u0422\u042c \u0414\u0410\u041b\u042c\u0428\u0415", newsTag:"\u041d\u041e\u0412\u041e\u0415 \u0412 QUELLCODE", newsRead:"\u0427\u0418\u0422\u0410\u0422\u042c \u0420\u0410\u0421\u0421\u041a\u0410\u0417", newsLater:"\u041f\u041e\u0417\u0416\u0415", locHelpShort:"\u041f\u041e\u041c\u041e\u0429\u042c", locStuck:"\u041d\u0415\u0422 \u0417\u0410\u041f\u0420\u041e\u0421\u0410 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u0418? \u041d\u0410\u0416\u041c\u0418\u0422\u0415 \u0417\u0414\u0415\u0421\u042c", locHelpTitle:"\u0412\u041a\u041b\u042e\u0427\u0418\u0422\u0415 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u042e", locRetry:"\u041e\u041f\u0420\u0415\u0414\u0415\u041b\u0418\u0422\u042c \u0421\u041d\u041e\u0412\u0410", openChrome:"\u041e\u0422\u041a\u0420\u042b\u0422\u042c \u0412 CHROME", locateLbl:"\u041c\u043e\u0451 \u043c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435", wvNote:"Quellcode \u0441\u0435\u0439\u0447\u0430\u0441 \u043e\u0442\u043a\u0440\u044b\u0442 \u0432\u043d\u0443\u0442\u0440\u0438 \u0434\u0440\u0443\u0433\u043e\u0433\u043e \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f, \u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440 \u043f\u043e\u0447\u0442\u043e\u0432\u043e\u0433\u043e. \u0422\u0430\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0447\u0430\u0441\u0442\u043e \u0432\u043e\u043e\u0431\u0449\u0435 \u043d\u0435 \u0441\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442 \u043e \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u0438. \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 Quellcode \u043f\u0440\u044f\u043c\u043e \u0432 Chrome.", locHelpBody:["Quellcode \u043d\u0443\u0436\u043d\u0430 \u0432\u0430\u0448\u0430 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u043e\u0434\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438: \u0432\u044b \u0441\u0442\u043e\u0438\u0442\u0435 \u043d\u0435 \u0434\u0430\u043b\u044c\u0448\u0435 30 \u043c\u0435\u0442\u0440\u043e\u0432 \u043e\u0442 \u043a\u043e\u043b\u043e\u043d\u043a\u0438? \u0413\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044f \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f \u043d\u0430 \u0432\u0430\u0448\u0435\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0435 \u0438 \u043d\u0438\u043a\u0443\u0434\u0430 \u043d\u0435 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.", "Android \u0438 Chrome: \u0432 \u0430\u0434\u0440\u0435\u0441\u043d\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0435 \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u043d\u0430 \u0437\u043d\u0430\u0447\u043e\u043a \u0441\u043b\u0435\u0432\u0430 \u043e\u0442 \u0430\u0434\u0440\u0435\u0441\u0430, \u0437\u0430\u0442\u0435\u043c \u00ab\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f\u00bb, \u0438 \u0434\u043b\u044f \u00ab\u041c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u044f\u00bb \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u00ab\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u044c\u00bb.", "Android \u0432 \u0446\u0435\u043b\u043e\u043c: \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044e \u0432 \u0431\u044b\u0441\u0442\u0440\u044b\u0445 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445. \u0412 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 > \u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f > Chrome > \u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f > \u041c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u00ab\u0422\u043e\u043b\u044c\u043a\u043e \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f\u00bb.", "iPhone: \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 > \u041a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0438 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c > \u0421\u043b\u0443\u0436\u0431\u044b \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u0438 > \u0412\u0435\u0431-\u0441\u0430\u0439\u0442\u044b Safari > \u00ab\u041f\u0440\u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0438\u00bb.", "\u041e\u0442\u043a\u0440\u044b\u043b\u0438 \u0438\u0437 \u043f\u043e\u0447\u0442\u044b \u0438\u043b\u0438 \u0441\u043e\u0446\u0441\u0435\u0442\u0438? \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0443 \u043f\u0440\u044f\u043c\u043e \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435. \u0417\u0430\u0442\u0435\u043c \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u041e\u041f\u0420\u0415\u0414\u0415\u041b\u0418\u0422\u042c \u0421\u041d\u041e\u0412\u0410\u00bb."],
+        photoRule:'\u041f\u0440\u0430\u0432\u0438\u043b\u043e: \u043f\u0435\u0440\u0432\u043e\u0435 \u0444\u043e\u0442\u043e \u0441\u0442\u0430\u043d\u0446\u0438\u0438 \u0434\u043e\u043b\u0436\u043d\u043e \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0435\u0451 \u043d\u043e\u043c\u0435\u0440, \u0447\u0442\u043e\u0431\u044b \u0431\u044b\u043b\u043e \u044f\u0441\u043d\u043e, \u043e \u043a\u0430\u043a\u043e\u0439 \u043a\u043e\u043b\u043e\u043d\u043a\u0435 \u0440\u0435\u0447\u044c. \u041c\u043e\u0434\u0435\u0440\u0430\u0446\u0438\u044f \u0441\u043b\u0435\u0434\u0438\u0442 \u0437\u0430 \u044d\u0442\u0438\u043c.',
+        sentTitle:'\u041f\u0415\u0420\u0415\u0414\u0410\u0427\u0410 \u041f\u0420\u0418\u041d\u042f\u0422\u0410', failTitle:'\u041f\u0415\u0420\u0415\u0414\u0410\u0427\u0410 \u041d\u0415 \u041f\u0420\u041e\u0428\u041b\u0410',
+        gallery:'\u0413\u0410\u041b\u0415\u0420\u0415\u042f', toStation:'\u041a \u0421\u0422\u0410\u041d\u0426\u0418\u0418', glEmpty:'\u041e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u044b\u0445 \u0444\u043e\u0442\u043e \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.',
+        fountains:'\u041f\u0418\u0422\u042c\u0415\u0412\u042b\u0415 \u0424\u041e\u041d\u0422\u0410\u041d\u0427\u0418\u041a\u0418', relay:'\u0420\u0415\u0422\u0420\u0410\u041d\u0421\u041b\u042f\u0422\u041e\u0420',
+        pgTitle:'\u041f\u0415\u041b\u0415\u041d\u0413', pgSub:'\u0411\u041b\u0418\u0416\u0410\u0419\u0428\u0410\u042f \u041d\u0415\u041f\u041e\u0414\u0422\u0412\u0415\u0420\u0416\u0414\u0401\u041d\u041d\u0410\u042f \u0421\u0422\u0410\u041d\u0426\u0418\u042f',
+        pgWalk:'\u0421\u0434\u0435\u043b\u0430\u0439\u0442\u0435 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0448\u0430\u0433\u043e\u0432, \u0438 \u0441\u0442\u0440\u0435\u043b\u043a\u0430 \u0443\u043a\u0430\u0436\u0435\u0442 \u043d\u0430\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435.', pgArrived:'\u041d\u0410 \u041c\u0415\u0421\u0422\u0415',
+        pgNext:'\u0421\u041b\u0415\u0414\u0423\u042e\u0429\u0410\u042f', pgNone:'\u041d\u0435\u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043d\u043d\u044b\u0445 \u0441\u0442\u0430\u043d\u0446\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e.',
+        original:'\u041e\u0440\u0438\u0433\u0438\u043d\u0430\u043b', translated:'\u041f\u0435\u0440\u0435\u0432\u043e\u0434',
+        pgTipTitle:'\u041f\u0415\u041b\u0415\u041d\u0413',
+        pgTipBody:['\u041f\u0435\u043b\u0435\u043d\u0433 \u0432\u0435\u0434\u0451\u0442 \u0432\u0430\u0441 \u043a \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u0439 \u043a\u043e\u043b\u043e\u043d\u043a\u0435, \u043a\u043e\u0442\u043e\u0440\u0443\u044e \u0435\u0449\u0451 \u043d\u0438\u043a\u0442\u043e \u043d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u044f\u043b. \u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435 \u0438 \u043d\u0430\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u043e\u0431\u043d\u043e\u0432\u043b\u044f\u044e\u0442\u0441\u044f \u043d\u0430 \u0445\u043e\u0434\u0443.',
+          '\u0421\u0442\u0440\u0435\u043b\u043a\u0430 \u0441\u043b\u0435\u0434\u0443\u0435\u0442 \u0437\u0430 \u0432\u0430\u0448\u0438\u043c \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0435\u043c, \u0430 \u043d\u0435 \u0437\u0430 \u043a\u043e\u043c\u043f\u0430\u0441\u043e\u043c. \u0427\u0435\u0440\u0435\u0437 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0448\u0430\u0433\u043e\u0432 \u043e\u043d\u0430 \u043f\u043e\u0439\u043c\u0451\u0442 \u043d\u0430\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435.',
+          '\u041d\u0430 \u043c\u0435\u0441\u0442\u0435 \u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043e\u0434\u043d\u043e\u0433\u043e \u043a\u0430\u0441\u0430\u043d\u0438\u044f: \u0412\u041e\u0414\u0410 \u0418\u0414\u0401\u0422 \u0438\u043b\u0438 \u0412\u041e\u0414\u042b \u041d\u0415\u0422. \u0415\u0441\u043b\u0438 \u043a\u043e\u043b\u043e\u043d\u043a\u0438 \u043d\u0435\u0442, \u0435\u0441\u0442\u044c \u041d\u0415 \u041d\u0410\u0419\u0414\u0415\u041d\u0410. \u0415\u0441\u043b\u0438 \u044d\u0442\u0430 \u043d\u0435 \u043f\u043e\u0434\u0445\u043e\u0434\u0438\u0442, \u0421\u041b\u0415\u0414\u0423\u042e\u0429\u0410\u042f \u0432\u0435\u0434\u0451\u0442 \u0434\u0430\u043b\u044c\u0448\u0435.'],
+        jnTipTitle:'\u0416\u0423\u0420\u041d\u0410\u041b',
+        jnTipBody:['\u0417\u0434\u0435\u0441\u044c \u0441\u043e\u0431\u0440\u0430\u043d\u044b \u0438\u0441\u0442\u043e\u0440\u0438\u0438, \u0440\u0430\u0441\u0441\u043a\u0430\u0437\u0430\u043d\u043d\u044b\u0435 \u0443 \u043a\u043e\u043b\u043e\u043d\u043e\u043a. \u041a\u0442\u043e \u043d\u0430\u0431\u0438\u0440\u0430\u0435\u0442 \u0437\u0434\u0435\u0441\u044c \u0432\u043e\u0434\u0443, \u0447\u0442\u043e \u0441\u0442\u043e\u044f\u043b\u043e \u043d\u0430 \u0443\u0433\u043b\u0443 \u0440\u0430\u043d\u044c\u0448\u0435, \u043a\u0442\u043e \u0441\u043f\u0430\u0441\u0430\u043b \u0434\u0435\u0440\u0435\u0432\u044c\u044f \u0432 \u0436\u0430\u0440\u043a\u043e\u0435 \u043b\u0435\u0442\u043e.',
+          '\u041a\u0430\u0436\u0434\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f \u0432\u0435\u0434\u0451\u0442 \u043a \u0441\u0432\u043e\u0435\u0439 \u043a\u043e\u043b\u043e\u043d\u043a\u0435. \u041e\u0434\u043d\u043e \u043a\u0430\u0441\u0430\u043d\u0438\u0435 \u041a \u0421\u0422\u0410\u041d\u0426\u0418\u0418, \u0438 \u043a\u0430\u0440\u0442\u0430 \u043f\u0435\u0440\u0435\u043d\u0435\u0441\u0451\u0442 \u0432\u0430\u0441 \u0442\u0443\u0434\u0430.',
+          '\u041f\u043e\u0447\u0442\u0438 \u0434\u0432\u0435 \u0442\u044b\u0441\u044f\u0447\u0438 \u043a\u043e\u043b\u043e\u043d\u043e\u043a \u0436\u0434\u0443\u0442 \u0441\u0432\u043e\u0435\u0439 \u043f\u0435\u0440\u0432\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0438. \u0415\u0441\u043b\u0438 \u0432\u044b \u0437\u043d\u0430\u0435\u0442\u0435 \u043e\u0434\u043d\u0443 \u0438\u0437 \u043d\u0438\u0445, \u0437\u0430\u043f\u0438\u0448\u0438\u0442\u0435. \u0414\u0432\u0443\u0445 \u0444\u0440\u0430\u0437 \u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e.'],
+        helpTitle:'\u0420\u0423\u041a\u041e\u0412\u041e\u0414\u0421\u0422\u0412\u0410',
+        kzTipTitle:'\u041a\u0418\u0426-\u0420\u0410\u0414\u0418\u041e',
+        kzTipBody:['\u0421\u043f\u0438\u0441\u043e\u043a \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 \u043f\u043e \u043a\u0430\u0436\u0434\u043e\u043c\u0443 \u0438\u0437 92 \u0440\u0430\u0439\u043e\u043d\u043e\u0432, \u0441\u043a\u043e\u043b\u044c\u043a\u043e \u043a\u043e\u043b\u043e\u043d\u043e\u043a \u0443\u0436\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043e. \u041f\u043e\u043b\u043e\u0441\u0430 \u0434\u0435\u043b\u0438\u0442\u0441\u044f: \u0431\u0438\u0440\u044e\u0437\u043e\u0432\u044b\u0439 \u2014 \u0432\u043e\u0434\u0430 \u0435\u0441\u0442\u044c, \u043a\u0440\u0430\u0441\u043d\u044b\u0439 \u2014 \u0441\u0443\u0445\u0430\u044f, \u0441\u0435\u0440\u044b\u0439 \u2014 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430.',
+          '\u042d\u0442\u043e \u0441\u043e\u0440\u0435\u0432\u043d\u043e\u0432\u0430\u043d\u0438\u0435 \u043d\u0435 \u043c\u0435\u0436\u0434\u0443 \u043b\u044e\u0434\u044c\u043c\u0438, \u0430 \u043c\u0435\u0436\u0434\u0443 \u0440\u0430\u0439\u043e\u043d\u0430\u043c\u0438. \u0411\u043e\u043b\u044c\u0448\u0438\u043d\u0441\u0442\u0432\u043e \u0432\u0441\u0451 \u0435\u0449\u0451 \u043d\u0430 \u043d\u0443\u043b\u0435. \u0420\u0430\u0439\u043e\u043d \u0441 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u0438\u043c\u0438 \u0434\u0435\u0441\u044f\u0442\u043a\u0430\u043c\u0438 \u043a\u043e\u043b\u043e\u043d\u043e\u043a \u2014 \u044d\u0442\u043e \u043e\u0434\u0438\u043d \u0447\u0435\u043b\u043e\u0432\u0435\u043a \u0438 \u043e\u0434\u043d\u0438 \u0432\u044b\u0445\u043e\u0434\u043d\u044b\u0435.'],
+        glTipTitle:'\u0413\u0410\u041b\u0415\u0420\u0415\u042f',
+        glTipBody:['\u0412\u0441\u0435 \u043e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u0441\u043d\u0438\u043c\u043a\u0438 \u0433\u043e\u0440\u043e\u0434\u0430 \u0432 \u043e\u0434\u043d\u043e\u043c \u043c\u0435\u0441\u0442\u0435, \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043d\u043e\u0432\u044b\u0435. \u041a\u043d\u043e\u043f\u043a\u0438 \u2212 \u0438 + \u043c\u0435\u043d\u044f\u044e\u0442 \u0447\u0438\u0441\u043b\u043e \u0441\u0442\u043e\u043b\u0431\u0446\u043e\u0432, \u043e\u0442 \u043e\u0431\u0449\u0435\u0433\u043e \u0432\u0438\u0434\u0430 \u0434\u043e \u043e\u0434\u043d\u043e\u0433\u043e \u0441\u043d\u0438\u043c\u043a\u0430.',
+          '\u041a\u0430\u0441\u0430\u043d\u0438\u0435 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0444\u043e\u0442\u043e \u0432\u043e \u0432\u0435\u0441\u044c \u044d\u043a\u0440\u0430\u043d \u0441 \u043f\u0435\u0440\u0435\u0445\u043e\u0434\u043e\u043c \u043a \u0435\u0433\u043e \u0441\u0442\u0430\u043d\u0446\u0438\u0438.','Если колонка открыла год в ЭХО, вторая кнопка ведёт к этому году и его факту о воде.'],
+        fnTipTitle:'\u041f\u0418\u0422\u042c\u0415\u0412\u042b\u0415 \u0424\u041e\u041d\u0422\u0410\u041d\u0427\u0418\u041a\u0418',
+        fnTipBody:['\u042d\u0442\u043e\u0442 \u0441\u043b\u043e\u0439 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442 \u043a 315 \u0433\u043e\u0440\u043e\u0434\u0441\u043a\u0438\u0445 \u043f\u0438\u0442\u044c\u0435\u0432\u044b\u0445 \u0444\u043e\u043d\u0442\u0430\u043d\u0447\u0438\u043a\u043e\u0432 \u043a \u0440\u0443\u0447\u043d\u044b\u043c \u043a\u043e\u043b\u043e\u043d\u043a\u0430\u043c. \u041e\u043d\u0438 \u0432\u044b\u0433\u043b\u044f\u0434\u044f\u0442 \u0438\u043d\u0430\u0447\u0435: \u0441\u0432\u0435\u0442\u043b\u044b\u0435 \u043a\u043e\u043b\u044c\u0446\u0430 \u0432\u043c\u0435\u0441\u0442\u043e \u0437\u0430\u043b\u0438\u0442\u044b\u0445 \u0442\u043e\u0447\u0435\u043a.',
+          '\u0420\u0430\u0437\u043d\u0438\u0446\u0430 \u0432\u0430\u0436\u043d\u0430. \u0424\u043e\u043d\u0442\u0430\u043d\u0447\u0438\u043a\u0438 \u0434\u0430\u044e\u0442 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043d\u0443\u044e \u043f\u0438\u0442\u044c\u0435\u0432\u0443\u044e \u0432\u043e\u0434\u0443, \u0440\u0443\u0447\u043d\u044b\u0435 \u043a\u043e\u043b\u043e\u043d\u043a\u0438 \u2014 \u043d\u0435\u0442. \u0411\u043e\u043b\u044c\u0448\u0438\u043d\u0441\u0442\u0432\u043e \u0444\u043e\u043d\u0442\u0430\u043d\u0447\u0438\u043a\u043e\u0432 \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442 \u0442\u043e\u043b\u044c\u043a\u043e \u0441 \u0432\u0435\u0441\u043d\u044b \u0434\u043e \u043e\u0441\u0435\u043d\u0438.'],
+        stTipTitle:'\u0413\u041e\u041b\u041e\u0421\u0410',
+        stTipBody:['\u041a\u043e\u0433\u0434\u0430 \u0441\u043b\u043e\u0439 \u0432\u043a\u043b\u044e\u0447\u0451\u043d, \u043a\u0430\u0436\u0434\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430 \u0441 \u043e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u043e\u0439 \u0438\u0441\u0442\u043e\u0440\u0438\u0435\u0439 \u043f\u043e\u043b\u0443\u0447\u0430\u0435\u0442 \u0442\u043e\u043d\u043a\u043e\u0435 \u043a\u043e\u043b\u044c\u0446\u043e. \u0420\u044f\u0434\u043e\u043c \u0441 \u043a\u0430\u0440\u0442\u043e\u0439 \u0432\u043e\u0434\u044b \u0440\u0430\u0441\u0442\u0451\u0442 \u0432\u0442\u043e\u0440\u0430\u044f: \u043a\u0430\u0440\u0442\u0430 \u0440\u0430\u0441\u0441\u043a\u0430\u0437\u0430\u043d\u043d\u044b\u0445 \u043c\u0435\u0441\u0442.',
+          '\u0421\u0430\u043c\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u2014 \u0432 \u0416\u0443\u0440\u043d\u0430\u043b\u0435.'],
+        echo:'ЭХО', ecNow:'ГОД', ecNext:'СЛЕДУЮЩЕЕ ЭХО', ecPending:'Этот год ещё изучается.', ecUnlocked:'Вы открыли ещё один год.', ecAll:'ВСЁ ЭХО', ecSource:'ИСТОЧНИК', th_berlin:'БЕРЛИН', th_world:'МИР', th_ocean:'ОКЕАН', th_chronik:'ХРОНИКА', th_cat:'КОШКА', th_yoga:'ЙОГА', dt_circa:'ПРИБЛИЗИТЕЛЬНО', dt_era:'ЭПОХА', dt_timeless:'ВНЕ ВРЕМЕНИ', dt_ca:'ок.', ecTipTitle:'ЭХО', ecOpenedBy:'ОТКРЫЛА', ecNudgeNo:'У этой колонки ещё нет фото. Первое опубликованное станет лицом этого года.', ecNudgeHas:'Первое фото этой колонки теперь лицо этого года.', ecTipBody:['Счётчик непроверенных колонок показывает ещё и год. Он начался с 1968, и каждая проверенная колонка переносит весь город на год назад во времени.','В каждом году хранится один факт о воде: о Берлине, о мире, об океанах, о наводнениях и засухах, иногда о кошках. Приблизительные даты отмечены как приблизительные. Тот, кто проверит колонку, открывающую новый год, прочтёт его первым.','Каждый год открыла одна колонка. На карточке видно, какая именно, вместе с её первым фото. В Галерее каждый снимок ведёт к году, который открыла его колонка.'], 
+        journal:'\u0416\u0423\u0420\u041d\u0410\u041b', introOk:'\u041f\u041e\u041d\u042f\u0422\u041d\u041e', introAgain:'\u041f\u041e\u041a\u0410\u0417\u0410\u0422\u042c \u0412\u0412\u0415\u0414\u0415\u041d\u0418\u0415 \u0421\u041d\u041e\u0412\u0410',
+        introTitle:'\u0414\u041e\u0411\u0420\u041e \u041f\u041e\u0416\u0410\u041b\u041e\u0412\u0410\u0422\u042c',
+        introBody:['Quellcode \u2014 \u043a\u0430\u0440\u0442\u0430 \u043f\u043e\u0447\u0442\u0438 \u0434\u0432\u0443\u0445 \u0442\u044b\u0441\u044f\u0447 \u0440\u0443\u0447\u043d\u044b\u0445 \u043a\u043e\u043b\u043e\u043d\u043e\u043a \u0411\u0435\u0440\u043b\u0438\u043d\u0430. \u0411\u043e\u043b\u044c\u0448\u0438\u043d\u0441\u0442\u0432\u043e \u0441\u0442\u043e\u0438\u0442 \u043d\u0430 \u0443\u043b\u0438\u0446\u0430\u0445 \u0431\u043e\u043b\u0435\u0435 \u0441\u0442\u0430 \u043b\u0435\u0442.',
+          '\u041d\u0438\u043a\u0442\u043e \u043d\u0435 \u0437\u043d\u0430\u0435\u0442, \u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0438\u0437 \u043d\u0438\u0445 \u0435\u0449\u0451 \u0434\u0430\u044e\u0442 \u0432\u043e\u0434\u0443. \u0422\u043e\u0442, \u043a\u0442\u043e \u0441\u0442\u043e\u0438\u0442 \u0443 \u043a\u043e\u043b\u043e\u043d\u043a\u0438, \u043c\u043e\u0436\u0435\u0442 \u0441\u043e\u043e\u0431\u0449\u0438\u0442\u044c, \u0438\u0434\u0451\u0442 \u043b\u0438 \u0432\u043e\u0434\u0430, \u043f\u0440\u0438\u0441\u043b\u0430\u0442\u044c \u0444\u043e\u0442\u043e \u0438\u043b\u0438 \u0437\u0430\u043f\u0438\u0441\u0430\u0442\u044c \u0432\u043e\u0441\u043f\u043e\u043c\u0438\u043d\u0430\u043d\u0438\u0435. \u0418\u0437\u0434\u0430\u043b\u0435\u043a\u0430 \u044d\u0442\u043e \u043d\u0435\u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u043c\u0435\u0441\u0442\u0435.',
+          '\u0412\u043e\u0434\u0430 \u0438\u0437 \u0440\u0443\u0447\u043d\u044b\u0445 \u043a\u043e\u043b\u043e\u043d\u043e\u043a \u043d\u0435 \u043f\u0438\u0442\u044c\u0435\u0432\u0430\u044f. 315 \u0433\u043e\u0440\u043e\u0434\u0441\u043a\u0438\u0445 \u043f\u0438\u0442\u044c\u0435\u0432\u044b\u0445 \u0444\u043e\u043d\u0442\u0430\u043d\u0447\u0438\u043a\u043e\u0432 \u043c\u043e\u0436\u043d\u043e \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u043c \u0441\u043b\u043e\u0435\u043c.',
+          '\u0411\u0435\u0437 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430, \u0431\u0435\u0437 \u0440\u0435\u043a\u043b\u0430\u043c\u044b, \u0431\u0435\u0437 \u0441\u043b\u0435\u0436\u043a\u0438. \u0412\u043a\u043b\u0430\u0434\u044b \u0430\u043d\u043e\u043d\u0438\u043c\u043d\u044b \u0438 \u043f\u0440\u043e\u0432\u0435\u0440\u044f\u044e\u0442\u0441\u044f \u043f\u0435\u0440\u0435\u0434 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u0435\u0439.'],
+        voices:'\u0413\u041e\u041b\u041e\u0421\u0410', vEmpty:'\u0418\u0441\u0442\u043e\u0440\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442. \u041f\u0435\u0440\u0432\u0430\u044f \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0432\u0430\u0448\u0435\u0439.',
+        prompts:['\u041a\u0442\u043e \u0431\u0435\u0440\u0451\u0442 \u0437\u0434\u0435\u0441\u044c \u0432\u043e\u0434\u0443?','\u0427\u0442\u043e \u0441\u0442\u043e\u044f\u043b\u043e \u0437\u0434\u0435\u0441\u044c \u0440\u0430\u043d\u044c\u0448\u0435?','\u041a\u043e\u0433\u0434\u0430 \u0432\u044b \u0432 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439 \u0440\u0430\u0437 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043b\u0438\u0441\u044c \u044d\u0442\u043e\u0439 \u043a\u043e\u043b\u043e\u043d\u043a\u043e\u0439?','\u041a\u043e\u0433\u043e \u0432\u044b \u0432\u0441\u0442\u0440\u0435\u0447\u0430\u043b\u0438 \u043d\u0430 \u044d\u0442\u043e\u043c \u0443\u0433\u043b\u0443?','\u0427\u0442\u043e \u0437\u0434\u0435\u0441\u044c \u043f\u0440\u043e\u0438\u0441\u0445\u043e\u0434\u0438\u0442 \u043b\u0435\u0442\u043e\u043c?','\u041f\u043e\u043c\u043d\u0438\u0442\u0435 \u043b\u0438 \u0432\u044b \u044d\u0442\u0443 \u043a\u043e\u043b\u043e\u043d\u043a\u0443 \u0440\u0430\u043d\u044c\u0448\u0435?'],
+        fnDrinkable:'\u041f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043d\u0430\u044f \u043f\u0438\u0442\u044c\u0435\u0432\u0430\u044f \u0432\u043e\u0434\u0430 \u0431\u0435\u0440\u043b\u0438\u043d\u0441\u043a\u043e\u0433\u043e \u0432\u043e\u0434\u043e\u043a\u0430\u043d\u0430\u043b\u0430. \u0412 \u043e\u0442\u043b\u0438\u0447\u0438\u0435 \u043e\u0442 \u0440\u0443\u0447\u043d\u044b\u0445 \u043a\u043e\u043b\u043e\u043d\u043e\u043a, \u0432\u043e\u0434\u0430 \u043a\u043e\u0442\u043e\u0440\u044b\u0445 \u043d\u0435 \u043f\u0438\u0442\u044c\u0435\u0432\u0430\u044f.',
+        fnSeason:'\u041e\u0431\u044b\u0447\u043d\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442 \u0442\u043e\u043b\u044c\u043a\u043e \u0441 \u0432\u0435\u0441\u043d\u044b \u0434\u043e \u043e\u0441\u0435\u043d\u0438.', fnOperator:'\u041e\u043f\u0435\u0440\u0430\u0442\u043e\u0440',
+        fnUnofficial:'\u041d\u0435 \u0433\u043e\u0440\u043e\u0434\u0441\u043a\u043e\u0439 \u0444\u043e\u043d\u0442\u0430\u043d\u0447\u0438\u043a. \u041f\u0440\u043e\u0438\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0435 \u043d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043e.',
+        cfg:'\u041d\u0435 \u0437\u0430\u0434\u0430\u043d\u0430 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f: \u0443\u043a\u0430\u0436\u0438\u0442\u0435 SUPABASE_URL \u0438 \u043a\u043b\u044e\u0447 \u0432 \u043d\u0430\u0447\u0430\u043b\u0435 \u043a\u043e\u0434\u0430.' },
+  tr: { working:'ALIM VAR', unknown:'DO\u011eRULANMADI', broken:'S\u0130NYAL YOK',
+        signal:'S\u0130NYAL', report:'S\u0130NYAL B\u0130LD\u0130R',
+        missing:'KAYIP', stMissing:'KAYIP \u00b7 YER\u0130NDE BULUNAMADI', missing2:'BULUNAMADI',
+        stWorking:'G\u00dc\u00c7L\u00dc \u00b7 SU AKIYOR', stUnknown:'DO\u011eRULANMADI', stBroken:'S\u0130NYAL YOK',
+        works:'SU AKIYOR', broken2:'SU YOK',
+        never:'Hen\u00fcz do\u011frulanmad\u0131', last:'Son do\u011frulama', reports:'bildirim',
+        thanks:'Aktar\u0131m al\u0131nd\u0131. Te\u015fekk\u00fcrler.', err:'G\u00f6nderilemedi, tekrar deneyin.',
+        station:'\u0130STASYON', iron:'D\u00f6km\u00e9 demir',
+        transmissions:'ALINAN AKTARIMLAR', noStories:'Hen\u00fcz yok. \u0130lkini siz g\u00f6nderin.',
+        photos:'FOTO\u011eRAFLAR', tellStory:'B\u0130R H\u0130K\u00c2YE G\u00d6NDER', send:'G\u00d6NDER', cancel:'\u0130PTAL',
+        storyPh:'Bu tulumbada ne oldu?',
+        pendingThanks:'Al\u0131nd\u0131. \u00d6nce incelenecek, sonra yay\u0131mlanacak.',
+        tooShort:'En az 10 karakter.', tooFast:'Katk\u0131lar aras\u0131nda biraz bekleyin.',
+        uploading:'Aktar\u0131l\u0131yor...',
+        license:'Katk\u0131lar anonimdir, yay\u0131mlanmadan \u00f6nce incelenir ve CC BY-SA ile payla\u015f\u0131l\u0131r.',
+        sqLore:'Nesneler aras\u0131nda sekip duran bir ekosistem.',
+        sqHub:'Yay\u0131n merkezine d\u00f6n', sqEnergy:'ENERJ\u0130 G\u00d6NDER',
+        sqCredits:'Tulumba ve \u00e7e\u015fme verileri \u00a9 OpenStreetMap katk\u0131c\u0131lar\u0131 (ODbL) \u00b7 Harita \u015femas\u0131 \u00a9 OpenMapTiles (BSD), d\u00f6\u015femeler OpenFreeMap, yedek harita \u00a9 CARTO \u00b7 Makine \u00e7evirisi deste\u011fi: MyMemory \u00b7 Yaz\u0131 tipleri: Space Grotesk ve IBM Plex Mono (SIL Open Font License) \u00b7 Harita motoru: MapLibre GL (BSD) \u00b7 Semtler: Geoportal Berlin, ALKIS (dl-de/zero-2.0) \u00b7 Veritaban\u0131: Supabase (supabase-js, MIT) \u00b7 Topluluk katk\u0131lar\u0131 CC BY-SA 4.0 ile',
+        kzTitle:'MAHALLE RADYOSU', kzReceived:'ALINDI', kzNet:'T\u00dcM A\u011e',
+        kzEmpty:'Hen\u00fcz mahalle atamas\u0131 yok.',
+        inRange:'MENZ\u0130LDE', outRange:'MENZ\u0130L DI\u015eINDA',
+        needLoc:'KATKI \u0130\u00c7\u0130N KONUMU A\u00c7IN', locWait:'S\u0130NYAL ARANIYOR...', witness:"TANIK", readStory:"H\u0130KAYEYE G\u0130T", readMore:"DEVAMINI OKU", newsTag:"QUELLCODE\u2019DA YEN\u0130", newsRead:"H\u0130KAYEY\u0130 OKU", newsLater:"SONRA", locHelpShort:"YARDIM", locStuck:"KONUM SORULMADI MI? BURAYA DOKUNUN", locHelpTitle:"KONUMU A\u00c7IN", locRetry:"YEN\u0130DEN BUL", openChrome:"CHROME\u2019DA A\u00c7", locateLbl:"Konumum", wvNote:"Quellcode \u015fu anda ba\u015fka bir uygulaman\u0131n, \u00f6rne\u011fin bir e-posta uygulamas\u0131n\u0131n i\u00e7inde a\u00e7\u0131k. Orada telefon \u00e7o\u011fu zaman konum sormaz. Quellcode\u2019u do\u011frudan Chrome\u2019da a\u00e7\u0131n.", locHelpBody:["Quellcode konumunuzu yaln\u0131zca tek bir kontrol i\u00e7in kullan\u0131r: Tulumbaya en fazla 30 metre uzakl\u0131kta m\u0131s\u0131n\u0131z? Konumunuz telefonunuzda kal\u0131r ve hi\u00e7bir yere g\u00f6nderilmez.", "Android ve Chrome: Adres \u00e7ubu\u011funda adresin solundaki simgeye, sonra \u201c\u0130zinler\u201da dokunun ve \u201cKonum\u201du \u201c\u0130zin ver\u201d olarak ayarlay\u0131n.", "Android genel: H\u0131zl\u0131 ayarlardan konumu a\u00e7\u0131n. Ayarlar > Uygulamalar > Chrome > \u0130zinler > Konum alt\u0131nda \u201cYaln\u0131zca uygulama kullan\u0131l\u0131rken izin ver\u201di se\u00e7in.", "iPhone: Ayarlar > Gizlilik ve G\u00fcvenlik > Konum Servisleri > Safari Web Siteleri > \u201cUygulamay\u0131 Kullan\u0131rken\u201d.", "Bir e-posta ya da sosyal medya uygulamas\u0131ndan m\u0131 a\u00e7t\u0131n\u0131z? Sayfay\u0131 do\u011frudan taray\u0131c\u0131da a\u00e7\u0131n. Sonra YEN\u0130DEN BUL\u2019a dokunun."],
+        photoRule:'Kural: bir istasyonun ilk foto\u011fraf\u0131 kuyu numaras\u0131n\u0131 g\u00f6stermelidir, b\u00f6ylece hangi tulumba oldu\u011fu bellidir. Denetim buna dikkat eder.',
+        sentTitle:'AKTARIM ALINDI', failTitle:'AKTARIM BA\u015eARISIZ',
+        gallery:'GALER\u0130', toStation:'\u0130STASYONA G\u0130T', glEmpty:'Hen\u00fcz yay\u0131mlanm\u0131\u015f foto\u011fraf yok.',
+        fountains:'\u00c7E\u015eMELER', relay:'R\u00d6LE NOKTASI',
+        fnDrinkable:'Berlin su idaresinin denetlenmi\u015f i\u00e7me suyu. \u0130\u00e7me suyu vermeyen el tulumbalar\u0131ndan farkl\u0131 olarak.',
+        fnSeason:'Genellikle yaln\u0131zca ilkbahardan sonbahara kadar \u00e7al\u0131\u015f\u0131r.', fnOperator:'\u0130\u015fletmeci',
+        fnUnofficial:'Belediyeye ait bir i\u00e7me \u00e7e\u015fmesi de\u011fil. Kayna\u011f\u0131 do\u011frulanmam\u0131\u015f.',
+        pgTitle:'KERTER\u0130Z', pgSub:'EN YAKIN DO\u011eRULANMAMI\u015e \u0130STASYON',
+        pgWalk:'Birka\u00e7 ad\u0131m at\u0131n, ok sonra y\u00f6n g\u00f6sterir.', pgArrived:'VARILDI',
+        pgNext:'SONRAK\u0130', pgNone:'Do\u011frulanmam\u0131\u015f istasyon bulunamad\u0131.',
+        original:'\u00d6zg\u00fcn', translated:'\u00c7eviri',
+        pgTipTitle:'KERTER\u0130Z',
+        pgTipBody:['Kerteriz sizi hen\u00fcz kimsenin denetlemedi\u011fi en yak\u0131n tulumbaya g\u00f6t\u00fcr\u00fcr. Mesafe ve y\u00f6n y\u00fcr\u00fcrken g\u00fcncellenir.',
+          'Ok, pusulaya de\u011fil hareketinize g\u00f6re \u00e7al\u0131\u015f\u0131r. Birka\u00e7 ad\u0131mdan sonra hangi y\u00f6ne gitti\u011finizi bilir.',
+          'Tulumbadayken SU AKIYOR ya da SU YOK demeniz yeterli. Tulumba yerinde de\u011filse BULUNAMADI var. Bu istasyon uymuyorsa SONRAK\u0130 sizi \u00f6teye ta\u015f\u0131r.'],
+        jnTipTitle:'G\u00dcNL\u00dcK',
+        jnTipBody:['Burada tulumbalarda anlat\u0131lan hik\u00e2yeler toplan\u0131r. Kim buradan kova dolduruyor, k\u00f6\u015fede eskiden ne vard\u0131, s\u0131cak yazda sokak a\u011fa\u00e7lar\u0131n\u0131 kim kurtard\u0131.',
+          'Her hik\u00e2ye kendi tulumbas\u0131na g\u00f6t\u00fcr\u00fcr. \u0130STASYONA G\u0130T\u2019e dokunun, harita oraya u\u00e7sun.',
+          'Neredeyse iki bin tulumba hen\u00fcz ilk sat\u0131r\u0131n\u0131 bekliyor. Tan\u0131d\u0131\u011f\u0131n\u0131z birinin \u00f6n\u00fcndeyseniz yaz\u0131n. \u0130ki c\u00fcmle yeter.'],
+        helpTitle:'KILAVUZLAR',
+        kzTipTitle:'MAHALLE RADYOSU',
+        kzTipBody:['Liste, 92 semtin her biri i\u00e7in ka\u00e7 tulumban\u0131n denetlendi\u011fini g\u00f6sterir. \u00c7ubuk b\u00f6l\u00fcn\u00fcr: suyu olanlar i\u00e7in aqua, kuru olanlar i\u00e7in k\u0131rm\u0131z\u0131, bulunamayanlar i\u00e7in gri.',
+          'Ki\u015filer aras\u0131nda de\u011fil, mahalleler aras\u0131nda bir yar\u0131\u015f. \u00c7o\u011fu h\u00e2l\u00e2 s\u0131f\u0131rda. Birka\u00e7 d\u00fczine tulumbal\u0131 bir semt, bir ki\u015fi ve bir hafta sonu demektir.'],
+        glTipTitle:'GALER\u0130',
+        glTipBody:['Kentte yay\u0131mlanm\u0131\u015f b\u00fct\u00fcn foto\u011fraflar tek yerde, en yenisi \u00f6nde. \u2212 ve + ile s\u00fctun say\u0131s\u0131n\u0131 de\u011fi\u015ftirirsiniz, genel bak\u0131\u015ftan tek g\u00f6r\u00fcnt\u00fcye.',
+          'Bir foto\u011frafa dokunun, b\u00fcy\u00fck a\u00e7\u0131l\u0131r ve istasyonuna ge\u00e7i\u015f sunar.','Tulumba YANKI’da bir yıl açtıysa, ikinci bir düğme o yıla ve onun su bilgisine götürür.'],
+        fnTipTitle:'\u00c7E\u015eMELER',
+        fnTipBody:['Bu katman, el tulumbalar\u0131na kentin 315 i\u00e7me \u00e7e\u015fmesini ekler. G\u00f6r\u00fcn\u00fc\u015fleri farkl\u0131d\u0131r: dolu nokta yerine a\u00e7\u0131k renk halkalar.',
+          'Fark \u00f6nemlidir. \u00c7e\u015fmeler denetlenmi\u015f i\u00e7me suyu verir, el tulumbalar\u0131 vermez. \u00c7e\u015fmelerin \u00e7o\u011fu yaln\u0131zca ilkbahardan sonbahara \u00e7al\u0131\u015f\u0131r.'],
+        stTipTitle:'SESLER',
+        stTipBody:['Bu katman a\u00e7\u0131kken, yay\u0131mlanm\u0131\u015f bir hik\u00e2yesi olan her tulumba ince bir halka al\u0131r. Suyun haritas\u0131n\u0131n yan\u0131nda ikinci bir harita b\u00fcy\u00fcr: anlat\u0131lm\u0131\u015f yerlerin haritas\u0131.',
+          'Hik\u00e2yelerin kendisi G\u00fcnl\u00fck\u2019tedir.'],
+        echo:'YANKI', ecNow:'YIL', ecNext:'SONRAKİ YANKI', ecPending:'Bu yıl hâlâ araştırılıyor.', ecUnlocked:'Yeni bir yıl açtınız.', ecAll:'TÜM YANKILAR', ecSource:'KAYNAK', th_berlin:'BERLİN', th_world:'DÜNYA', th_ocean:'OKYANUS', th_chronik:'KRONİK', th_cat:'KEDİ', th_yoga:'YOGA', dt_circa:'YAKLAŞIK', dt_era:'ÇAĞ', dt_timeless:'ZAMANSIZ', dt_ca:'yakl.', ecTipTitle:'YANKI', ecOpenedBy:'AÇAN', ecNudgeNo:'Bu tulumbanın henüz fotoğrafı yok. Yayımlanan ilk fotoğraf bu yılın yüzü olacak.', ecNudgeHas:'Bu tulumbanın ilk fotoğrafı artık bu yılın yüzü.', ecTipBody:['Kontrol edilmemiş tulumba sayacı aynı zamanda bir yıldır. 1968’de başladı ve kontrol edilen her tulumba bütün kenti zamanda bir yıl geriye götürür.','Her yıl su hakkında bir bilgi saklar: Berlin, dünya, okyanuslar, seller ve kuraklıklar, bazen de kediler. Yaklaşık olarak işaretlenen tarihler gerçekten yaklaşıktır. Yeni bir yılı açan tulumbayı kontrol eden kişi onu ilk okuyan olur.','Her yılı bir tulumba açtı. Kartı, tulumbanın ilk fotoğrafıyla hangisi olduğunu gösterir. Galeri’de her fotoğraf, tulumbasının açtığı yıla geri götürür.'], 
+        journal:'G\u00dcNL\u00dcK', introOk:'ANLADIM', introAgain:'G\u0130R\u0130\u015e\u0130 TEKRAR G\u00d6STER',
+        introTitle:'HO\u015e GELD\u0130N\u0130Z',
+        introBody:['Quellcode, Berlin\u2019in yakla\u015f\u0131k iki bin el tulumbas\u0131n\u0131n haritas\u0131d\u0131r. \u00c7o\u011fu y\u00fcz y\u0131ldan uzun s\u00fcredir sokakta duruyor.',
+          'Ka\u00e7\u0131n\u0131n h\u00e2l\u00e2 su verdi\u011fini kimse bilmiyor. Bir tulumban\u0131n \u00f6n\u00fcnde duran herkes suyun ak\u0131p akmad\u0131\u011f\u0131n\u0131 bildirebilir, foto\u011fraf g\u00f6nderebilir ya da bir an\u0131s\u0131n\u0131 yazabilir. Uzaktan olmaz, yaln\u0131zca yerinde.',
+          'El tulumbalar\u0131n\u0131n suyu i\u00e7ilmez. Kentin 315 i\u00e7me \u00e7e\u015fmesi ayr\u0131 bir katman olarak g\u00f6sterilebilir.',
+          'Hesap yok, reklam yok, takip yok. Katk\u0131lar anonimdir ve yay\u0131mlanmadan \u00f6nce incelenir.'],
+        voices:'SESLER', vEmpty:'Hen\u00fcz hik\u00e2ye yok. \u0130lki sizinki olabilir.',
+        prompts:['Buradan kim su al\u0131yor?','Eskiden burada ne vard\u0131?','Bu tulumbay\u0131 en son ne zaman kulland\u0131n\u0131z?','Bu k\u00f6\u015fede kimlerle kar\u015f\u0131la\u015ft\u0131n\u0131z?','Yaz\u0131n burada neler olur?','Bu tulumbay\u0131 eskiden hat\u0131rl\u0131yor musunuz?'],
+        cfg:'Yap\u0131land\u0131rma eksik: kodun ba\u015f\u0131na SUPABASE_URL ve anahtar\u0131 girin.' }
+};
+const ALL_LANGS = ['de','en','fr','ru','tr'];
+const LOCALES = { de:'de-DE', en:'en-GB', fr:'fr-FR', ru:'ru-RU', tr:'tr-TR' };
+const LANG_NAMES = { de:'Deutsch', en:'English', fr:'Fran\u00e7ais', ru:'\u0420\u0443\u0441\u0441\u043a\u0438\u0439', tr:'T\u00fcrk\u00e7e' };
+const LANGS_VISIBLE = () => ALL_LANGS;
+let lang = localStorage.getItem('qc-lang');
+if (!LANGS_VISIBLE().includes(lang)){
+  const nav = (navigator.language || 'en').slice(0,2);
+  lang = LANGS_VISIBLE().includes(nav) ? nav : 'en';
+}
+const t = (k) => I18N[lang][k];
+
+const langBtn = document.getElementById('langBtn');
+function renderLang(){
+  langBtn.innerHTML = LANGS_VISIBLE().map(l => l === lang ? '<b>' + l.toUpperCase() + '</b>' : l.toUpperCase()).join(' ');
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i]').forEach(el => { el.textContent = t(el.dataset.i); });
+  if (current){ fillSheet(current); updateRange(); }
+  if (typeof inModal !== 'undefined'){ fillIntro(); renderHelpList(); }
+  if (window.__ecRender) window.__ecRender();
+  if (typeof pgOn !== 'undefined' && pgOn) updatePeilung();
+  if (typeof nwModal !== 'undefined' && !nwModal.hidden) fillNews();
+  renderCounts();
+}
+langBtn.addEventListener('click', () => {
+  const set = LANGS_VISIBLE();
+  lang = set[(set.indexOf(lang) + 1) % set.length];
+  localStorage.setItem('qc-lang', lang);
+  renderLang();
+});
+
+// ---------- data ----------
+const configured = !SUPABASE_URL.startsWith('PASTE');
+const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
+const pumps = new Map();   // id -> row
+let current = null;
+
+async function loadPumps(){
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('pumps')
+      .select('id,osm_id,lat,lng,address,district,ref,model,notes,current_status,last_confirmed_at,report_count')
+      .order('id')
+      .range(from, from + 999);
+    if (error) throw error;
+    data.forEach(r => pumps.set(r.id, r));
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+}
+
+function toGeoJSON(){
+  return { type:'FeatureCollection', features:[...pumps.values()].map(r => ({
+    type:'Feature',
+    geometry:{ type:'Point', coordinates:[r.lng, r.lat] },
+    properties:{ id:r.id, status:r.current_status, hasStory: storyPumps.has(r.id) ? 1 : 0 }
+  }))};
+}
+
+function renderCounts(){
+  let w=0,u=0,b=0,m=0;
+  for (const r of pumps.values()){
+    if (r.current_status==='working') w++;
+    else if (r.current_status==='broken') b++;
+    else if (r.current_status==='missing') m++;
+    else u++;
+  }
+  cW.textContent=w; cU.textContent=u; cB.textContent=b; cM.textContent=m;
+}
+
+// ---------- story text in the reader's language ----------
+function storyBody(s){
+  const own = s['body_' + lang];
+  const orig = (s.lang || 'de').toUpperCase();
+  if (s.lang === lang) return { text: s.body, note: null };
+  if (own && own.trim())
+    return { text: own, note: t('translated') + ' \u00b7 ' + t('original') + ' ' + orig };
+  return { text: s.body, note: t('original') + ' ' + orig };
+}
+
+// ---------- stories: which pumps carry one, and the reading view ----------
+const storyPumps = new Set();
+async function loadStoryPumps(){
+  const { data, error } = await supabase.from('stories')
+    .select('pump_id').eq('state','approved');
+  if (error) return;
+  storyPumps.clear();
+  data.forEach(r => storyPumps.add(r.pump_id));
+  const src = map && map.getSource('pumps');
+  if (src) src.setData(toGeoJSON());
+}
+
+const stModal = document.getElementById('stModal');
+
+// STIMMEN: shows or hides the ring around pumps that carry a story
+const stBtn = document.getElementById('stBtn');
+let ringsOn = localStorage.getItem('qc-rings') !== '0';
+function applyRings(){
+  if (map && map.getLayer('pump-story'))
+    map.setLayoutProperty('pump-story', 'visibility', ringsOn ? 'visible' : 'none');
+  stBtn.classList.toggle('on', ringsOn);
+}
+stBtn.addEventListener('click', () => {
+  ringsOn = !ringsOn;
+  localStorage.setItem('qc-rings', ringsOn ? '1' : '0');
+  applyRings();
+  if (ringsOn) showTip('qc-tip-voices', 'stTipTitle', 'stTipBody');
+});
+
+// JOURNAL: the reading view
+document.getElementById('jnBtn').addEventListener('click', () => {
+  stModal.hidden = false; loadVoices();
+  showTip('qc-tip-journal', 'jnTipTitle', 'jnTipBody');
+});
+document.getElementById('stClose').addEventListener('click', () => { stModal.hidden = true; });
+
+async function loadVoices(){
+  const list = document.getElementById('stList');
+  list.innerHTML = '';
+  const jcols = 'body,body_de,body_en,body_fr,body_ru,body_tr,lang,period_hint,created_at,pump_id,pumps(ref,address,district)';
+  const jrun = (c) => supabase.from('stories').select(c)
+    .eq('state','approved').order('created_at',{ ascending:false }).limit(200);
+  let { data, error } = await jrun(jcols + ',credit');
+  if (error) ({ data, error } = await jrun(jcols));
+  if (error || !data || !data.length){
+    list.innerHTML = '<div class="stEmpty">' + t('vEmpty') + '</div>';
+    return;
+  }
+  for (const s of data){
+    const card = document.createElement('div');
+    card.className = 'stCard';
+    const sb = storyBody(s);
+    const b = document.createElement('div');
+    b.className = 'body'; b.textContent = sb.text;
+    const m = document.createElement('div');
+    m.className = 'meta';
+    const p = s.pumps || {};
+    m.textContent = [
+      s.credit ? s.credit.toUpperCase() : null,
+      p.ref ? t('station') + ' ' + p.ref : null,
+      p.address || p.district || null,
+      s.period_hint || new Date(s.created_at).toLocaleDateString(LOCALES[lang],
+        { month:'2-digit', year:'numeric' }),
+      sb.note
+    ].filter(Boolean).join(' \u00b7 ');
+    const go = document.createElement('button');
+    go.className = 'go'; go.textContent = t('toStation');
+    go.addEventListener('click', () => {
+      const pump = pumps.get(s.pump_id);
+      stModal.hidden = true;
+      if (!pump) return;
+      map.flyTo({ center:[pump.lng, pump.lat], zoom:16.5 });
+      openSheet(s.pump_id);
+    });
+    card.appendChild(b); card.appendChild(m); card.appendChild(go);
+    list.appendChild(card);
+  }
+}
+
+// ---------- PEILUNG (nearest unverified station) ----------
+const PG_MIN_MOVE = 5;            // metres of travel before a heading is trusted
+// SVG elements with an id are not exposed as globals the way HTML ones are
+const pgArrow = document.getElementById('pgArrow');
+let pgOn = false, pgTarget = null, pgHeading = null, pgLastFix = null;
+const pgSkipped = new Set();
+
+// bearing from point 1 to point 2, degrees clockwise from north
+function bearingDeg(a1, o1, a2, o2){
+  const r = Math.PI / 180;
+  const y = Math.sin((o2 - o1) * r) * Math.cos(a2 * r);
+  const x = Math.cos(a1 * r) * Math.sin(a2 * r) -
+            Math.sin(a1 * r) * Math.cos(a2 * r) * Math.cos((o2 - o1) * r);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
+// course over ground: heading derived from movement, not from the magnetometer
+function trackCourse(){
+  if (!userPos) return;
+  if (!pgLastFix){ pgLastFix = userPos; return; }
+  const moved = distM(pgLastFix[0], pgLastFix[1], userPos[0], userPos[1]);
+  if (moved >= PG_MIN_MOVE){
+    pgHeading = bearingDeg(pgLastFix[0], pgLastFix[1], userPos[0], userPos[1]);
+    pgLastFix = userPos;
+  }
+}
+function pickTarget(){
+  if (!userPos) return null;
+  let best = null, bd = Infinity;
+  for (const p of pumps.values()){
+    if (p.last_confirmed_at || pgSkipped.has(p.id)) continue;
+    const d = distM(userPos[0], userPos[1], p.lat, p.lng);
+    if (d < bd){ bd = d; best = p; }
+  }
+  return best;
+}
+function pgSetHint(msg, color, tap){ pgHint.textContent = msg; pgHint.style.color = color; pgHint.classList.toggle('tap', !!tap); }
+pgHint.addEventListener('click', () => { if (pgHint.classList.contains('tap')) showLocHelp(); });
+function updatePeilung(){
+  if (!pgOn) return;
+  pgGo.textContent = t('toStation');
+  pgSkip.textContent = t('pgNext');
+  if (geoErr){
+    pgDist.textContent = '\u2013'; pgName.textContent = '';
+    pgArrow.classList.remove('live');
+    pgSetHint(t('needLoc') + ' \u00b7 ' + t('locHelpShort'), 'var(--amber)', true);
+    pgGo.disabled = pgSkip.disabled = true;
+    return;
+  }
+  if (!userPos){
+    pgDist.textContent = '\u2013'; pgName.textContent = '';
+    pgArrow.classList.remove('live');
+    if (locStuck) pgSetHint(t('locStuck'), 'var(--amber)', true);
+    else pgSetHint(t('locWait'), 'var(--utility)');
+    pgGo.disabled = pgSkip.disabled = true;
+    return;
+  }
+  // retarget when the current one got confirmed, skipped, or never existed
+  if (!pgTarget || pgTarget.last_confirmed_at || pgSkipped.has(pgTarget.id)){
+    pgTarget = pickTarget();
+  }
+  if (!pgTarget){
+    pgDist.textContent = '\u2013'; pgName.textContent = '';
+    pgArrow.classList.remove('live');
+    pgSetHint(t('pgNone'), 'var(--amber)');
+    pgGo.disabled = pgSkip.disabled = true;
+    return;
+  }
+  pgGo.disabled = pgSkip.disabled = false;
+  const d = distM(userPos[0], userPos[1], pgTarget.lat, pgTarget.lng);
+  pgDist.textContent = fmtDist(d);
+  pgName.textContent = [
+    pgTarget.ref ? t('station') + ' ' + pgTarget.ref : null,
+    pgTarget.address || pgTarget.district || 'Berlin'
+  ].filter(Boolean).join(' \u00b7 ');
+
+  if (pgHeading == null){
+    pgArrow.classList.remove('live');
+    pgArrow.style.transform = 'rotate(0deg)';
+    pgSetHint(t('pgWalk'), 'var(--amber)');
+  } else {
+    const rel = (bearingDeg(userPos[0], userPos[1], pgTarget.lat, pgTarget.lng) - pgHeading + 360) % 360;
+    pgArrow.classList.add('live');
+    pgArrow.style.transform = 'rotate(' + rel + 'deg)';
+    pgSetHint(d <= RANGE_M ? '\u25cf ' + t('pgArrived') : '', 'var(--signal)');
+  }
+}
+const pgSheet = document.getElementById('pgSheet');
+function setPeilung(on){
+  pgOn = on;
+  pgBtn.classList.toggle('on', on);
+  pgSheet.classList.toggle('open', on);
+  if (on){
+    closeSheet();
+    fnSheet.classList.remove('open');
+    pgLastFix = userPos;
+    startWatch();
+    updatePeilung();
+  } else {
+    stopWatch();
+  }
+}
+const pgBtn = document.getElementById('pgBtn');
+pgBtn.addEventListener('click', () => {
+  setPeilung(!pgOn);
+  if (pgOn) showTip('qc-tip-peilung', 'pgTipTitle', 'pgTipBody');
+});
+document.getElementById('pgClose').addEventListener('click', () => setPeilung(false));
+document.getElementById('pgSkip').addEventListener('click', () => {
+  if (!pgTarget) return;
+  pgSkipped.add(pgTarget.id);
+  pgTarget = null;
+  updatePeilung();
+});
+document.getElementById('pgGo').addEventListener('click', () => {
+  if (!pgTarget) return;
+  const id = pgTarget.id, p = pgTarget;
+  setPeilung(false);
+  map.flyTo({ center:[p.lng, p.lat], zoom:16.5 });
+  openSheet(id);
+});
+
+// ---------- fountains (relay points, read-only) ----------
+const fountains = new Map();
+let fnOn = localStorage.getItem('qc-fountains') === '1';
+let fnLoaded = false;
+
+async function loadFountains(){
+  if (fnLoaded) return;
+  const { data, error } = await supabase.from('fountains')
+    .select('id,lat,lng,name,operator,seasonal').limit(2000);
+  if (error) return;
+  data.forEach(r => fountains.set(r.id, r));
+  fnLoaded = true;
+  const src = map.getSource('fountains');
+  if (src) src.setData(fountainGeoJSON());
+}
+function fountainGeoJSON(){
+  return { type:'FeatureCollection', features:[...fountains.values()].map(r => ({
+    type:'Feature',
+    geometry:{ type:'Point', coordinates:[r.lng, r.lat] },
+    properties:{ id:r.id }
+  }))};
+}
+function applyFnVisibility(){
+  const v = fnOn ? 'visible' : 'none';
+  ['fountain-glow','fountain-dot'].forEach(id => {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v);
+  });
+  fnBtn.classList.toggle('on', fnOn);
+  if (!fnOn) fnSheet.classList.remove('open');
+}
+const fnBtn = document.getElementById('fnBtn');
+const fnSheet = document.getElementById('fnSheet');
+document.getElementById('fnClose').addEventListener('click', () => fnSheet.classList.remove('open'));
+fnBtn.addEventListener('click', () => {
+  fnOn = !fnOn;
+  localStorage.setItem('qc-fountains', fnOn ? '1' : '0');
+  applyFnVisibility();
+  if (fnOn){ loadFountains(); showTip('qc-tip-fountain', 'fnTipTitle', 'fnTipBody'); }
+});
+function openFountain(id){
+  const f = fountains.get(id);
+  if (!f) return;
+  closeSheet();
+  fnName.textContent = f.name || t('fountains');
+  fnSub.textContent = f.lat.toFixed(4) + ' N \u00b7 ' + f.lng.toFixed(4) + ' E';
+  const official = (f.operator || '').toLowerCase().includes('wasserbetriebe');
+  fnNote.textContent = official ? t('fnDrinkable') : t('fnUnofficial');
+  fnNote.style.color = official ? '#C4D4DC' : 'var(--amber)';
+  const bits = [];
+  if (f.operator) bits.push(t('fnOperator') + ': ' + f.operator);
+  if (f.seasonal) bits.push(t('fnSeason'));
+  fnOp.textContent = bits.join(' \u00b7 ');
+  fnSheet.classList.add('open');
+}
+
+// ---------- map ----------
+let map;
+function initMap(){
+  map = new maplibregl.Map({
+    container:'map',
+    center:[13.4050, 52.5150],
+    zoom:11, minZoom:9, maxZoom:18,
+    attributionControl:{ compact:true },
+    style:{
+      version:8,
+      glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+      sources:{
+        omt:{ type:'vector', url:'https://tiles.openfreemap.org/planet',
+          attribution:'© OpenStreetMap contributors © OpenMapTiles' },
+        fallback:{ type:'raster', tiles:[
+          'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png'
+        ], tileSize:256, attribution:'© OpenStreetMap contributors © CARTO' }
+      },
+      layers:[
+        { id:'bg', type:'background', paint:{ 'background-color':'#02060A' } },
+        { id:'fallback-base', type:'raster', source:'fallback',
+          layout:{ visibility:'none' },
+          paint:{ 'raster-hue-rotate':175, 'raster-saturation':-0.3, 'raster-contrast':0.35 } },
+        { id:'water', type:'fill', source:'omt', 'source-layer':'water',
+          paint:{ 'fill-color':'#08141E' } },
+        { id:'park', type:'fill', source:'omt', 'source-layer':'landcover',
+          filter:['in','class','grass','wood'],
+          paint:{ 'fill-color':'#04120C' } },
+        { id:'buildings', type:'fill', source:'omt', 'source-layer':'building', minzoom:13,
+          paint:{ 'fill-color':'#0A1520', 'fill-opacity':0.7 } },
+        { id:'road-path', type:'line', source:'omt', 'source-layer':'transportation',
+          filter:['in','class','path','track'], minzoom:14,
+          paint:{ 'line-color':'#16262F',
+            'line-width':['interpolate',['linear'],['zoom'],14,0.5,17,1.5] } },
+        { id:'road-minor', type:'line', source:'omt', 'source-layer':'transportation',
+          filter:['in','class','minor','service','tertiary'],
+          paint:{ 'line-color':'#28414F',
+            'line-width':['interpolate',['linear'],['zoom'],10,0.6,14,2,17,5] } },
+        { id:'road-major', type:'line', source:'omt', 'source-layer':'transportation',
+          filter:['in','class','primary','secondary','trunk','motorway'],
+          paint:{ 'line-color':'#3D6076',
+            'line-width':['interpolate',['linear'],['zoom'],10,1.2,14,3.5,17,8] } },
+        { id:'road-names', type:'symbol', source:'omt', 'source-layer':'transportation_name',
+          minzoom:13,
+          layout:{ 'symbol-placement':'line',
+            'text-field':['coalesce',['get','name:latin'],['get','name']],
+            'text-font':['Noto Sans Regular'],
+            'text-size':['interpolate',['linear'],['zoom'],13,12,15,15,17,17] },
+          paint:{ 'text-color':'#D6E9EF',
+            'text-halo-color':'#02060A', 'text-halo-width':1.6 } },
+        { id:'place-names', type:'symbol', source:'omt', 'source-layer':'place',
+          filter:['in','class','suburb','neighbourhood','quarter'], minzoom:10, maxzoom:14.5,
+          layout:{ 'text-field':['coalesce',['get','name:latin'],['get','name']],
+            'text-font':['Noto Sans Regular'],
+            'text-size':['interpolate',['linear'],['zoom'],10,11,14,14],
+            'text-transform':'uppercase', 'text-letter-spacing':0.2 },
+          paint:{ 'text-color':'#5F7C8D',
+            'text-halo-color':'#02060A', 'text-halo-width':1.2 } }
+      ]
+    }
+  });
+  map.addControl(new LocateCtl(), 'top-right');
+  let omtErrors = 0, onFallback = false;
+  map.on('error', (e) => {
+    if (onFallback || !e || e.sourceId !== 'omt') return;
+    if (++omtErrors < 4) return;
+    onFallback = true;
+    map.setLayoutProperty('fallback-base', 'visibility', 'visible');
+    ['bg','water','park','buildings','road-path','road-minor','road-major']
+      .forEach(id => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none'); });
+  });
+
+  map.once('load', () => {
+    document.querySelectorAll('details.maplibregl-ctrl-attrib')
+      .forEach(d => d.removeAttribute('open'));
+  });
+
+  map.on('load', () => {
+    map.addSource('pumps', { type:'geojson', data: toGeoJSON() });
+    map.addLayer({ id:'pump-glow', type:'circle', source:'pumps',
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'],10,5,14,13,17,19],
+        'circle-color':['match',['get','status'],'working',COLORS.working,'broken',COLORS.broken,'missing',COLORS.missing,COLORS.unknown],
+        'circle-opacity':0.16, 'circle-blur':1 } });
+    map.addLayer({ id:'pump-story', type:'circle', source:'pumps',
+      filter:['==',['get','hasStory'],1],
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'],10,6,14,15,17,22],
+        'circle-color':'rgba(0,0,0,0)',
+        'circle-stroke-width':1.2,
+        'circle-stroke-color':'#57E6D2',
+        'circle-stroke-opacity':0.55 } });
+    map.addLayer({ id:'pump-dot', type:'circle', source:'pumps',
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'],10,2.2,14,5,17,7.5],
+        'circle-color':['match',['get','status'],'working',COLORS.working,'broken',COLORS.broken,'missing',COLORS.missing,COLORS.unknown],
+        'circle-stroke-width':0.5, 'circle-stroke-color':'#05090E' } });
+
+    map.addSource('fountains', { type:'geojson', data: fountainGeoJSON() });
+    map.addLayer({ id:'fountain-glow', type:'circle', source:'fountains',
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'],10,4,14,11,17,16],
+        'circle-color':'#8FD3F0', 'circle-opacity':0.13, 'circle-blur':1 } });
+    map.addLayer({ id:'fountain-dot', type:'circle', source:'fountains',
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'],10,1.6,14,3.6,17,5.5],
+        'circle-color':'#05090E',
+        'circle-stroke-width':['interpolate',['linear'],['zoom'],10,1.2,17,2.4],
+        'circle-stroke-color':'#8FD3F0' } });
+    applyFnVisibility();
+    applyRings();
+    if (fnOn) loadFountains();
+
+    const PAD = 22; // px hit radius around the tap
+    map.on('click', (e) => {
+      const bbox = [[e.point.x - PAD, e.point.y - PAD], [e.point.x + PAD, e.point.y + PAD]];
+      const hits = map.queryRenderedFeatures(bbox, { layers:['pump-dot'] });
+      if (!hits.length){
+        if (fnOn){
+          const fh = map.queryRenderedFeatures(bbox, { layers:['fountain-dot'] });
+          if (fh.length){
+            let bf = null, bfd = Infinity;
+            for (const f of fh){
+              const p = map.project(f.geometry.coordinates);
+              const d = (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
+              if (d < bfd){ bfd = d; bf = f; }
+            }
+            openFountain(bf.properties.id);
+            return;
+          }
+        }
+        closeSheet(); fnSheet.classList.remove('open'); return;
+      }
+      fnSheet.classList.remove('open');
+      let best = null, bd = Infinity;
+      for (const f of hits){
+        const p = map.project(f.geometry.coordinates);
+        const d = (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
+        if (d < bd){ bd = d; best = f; }
+      }
+      openSheet(best.properties.id);
+    });
+    map.on('mousemove', (e) => {
+      const hits = map.queryRenderedFeatures(
+        [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]],
+        { layers:['pump-dot'] });
+      map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
+    });
+  });
+}
+
+// ---------- sheet ----------
+const sheet = document.getElementById('sheet');
+function stationLabel(r){
+  return t('station') + ' ' + (r.ref || String(r.osm_id).slice(-4));
+}
+function fillSheet(r){
+  sNo.textContent = stationLabel(r);
+  sName.textContent = r.address || (r.district || 'Berlin');
+  sSub.textContent = [
+    r.lat.toFixed(4)+' N · '+r.lng.toFixed(4)+' E',
+    r.model || t('iron'),
+    r.notes || null
+  ].filter(Boolean).join(' · ');
+
+  const st = r.current_status;
+  sStatus.textContent = st==='working' ? t('stWorking') : st==='broken' ? t('stBroken')
+    : st==='missing' ? t('stMissing') : t('stUnknown');
+  sStatus.style.color = COLORS[st];
+  [...sBars.children].forEach((bar,i) => {
+    const on = i < BARS[st];
+    bar.style.background = on ? COLORS[st] : 'var(--line)';
+    bar.style.boxShadow = on && st==='working' ? '0 0 8px rgba(87,230,210,.45)' : 'none';
+  });
+  sConfirm.textContent = r.last_confirmed_at
+    ? t('last')+': '+new Date(r.last_confirmed_at).toLocaleDateString(LOCALES[lang])+' · '+r.report_count+' '+t('reports')
+    : t('never');
+  btnWorks.textContent = t('works');
+  btnBroken.textContent = t('broken2');
+  btnMissing.textContent = t('missing2');
+  btnStory.textContent = t('tellStory');
+  btnStorySend.textContent = t('send');
+  btnStoryCancel.textContent = t('cancel');
+  const pr = t('prompts');
+  storyText.placeholder = Array.isArray(pr) && pr.length
+    ? pr[Math.floor(Math.random() * pr.length)] : t('storyPh');
+  sToast.textContent = '';
+}
+function openSheet(id){
+  current = pumps.get(id);
+  if (!current) return;
+  fillSheet(current);
+  document.getElementById('storyForm').classList.remove('open');
+  gateOpen = false;
+  updateRange();
+  startWatch();
+  sheet.classList.add('open');
+  loadContent(id);
+}
+function closeSheet(){ sheet.classList.remove('open'); current = null; stopWatch(); if (!pgOn && !locateOn) userPos = null; }
+document.getElementById('sClose').addEventListener('click', closeSheet);
+
+async function report(status){
+  if (!current || !gateOpen) return;
+  btnWorks.disabled = btnBroken.disabled = true;
+  const firstCheck = !current.last_confirmed_at;
+  const { error } = await supabase.from('status_reports').insert({ pump_id: current.id, status });
+  if (error){
+    sToast.textContent = t('err'); sToast.style.color = 'var(--lost)';
+  } else {
+    current.current_status = status;
+    current.last_confirmed_at = new Date().toISOString();
+    current.report_count += 1;
+    fillSheet(current);
+    map.getSource('pumps').setData(toGeoJSON());
+    renderCounts();
+    sToast.textContent = t('thanks'); sToast.style.color = 'var(--signal)';
+    // a pump checked for the first time takes the city one year back.
+    // The database decides which year (curated openers), and may reveal a story here.
+    if (firstCheck){
+      const id = current.id;
+      loadContent(id); loadStoryPumps();
+      await loadEchoOpeners();
+      const y = pumpYear.has(id) ? pumpYear.get(id) : echoYear();
+      if (window.__ecOpened) window.__ecOpened(y);
+      maybeShowNews(true);
+    }
+  }
+  btnWorks.disabled = btnBroken.disabled = false;
+}
+
+// ---------- ECHO: the unchecked-pump counter read as a year ----------
+// Year = 1968 minus pumps ever checked. Checked pumps only ever grow, so an
+// opened year never closes again, even if more pumps are added to the map.
+const ECHO_START = 1968;
+function echoYear(){
+  let v = 0;
+  for (const p of pumps.values()) if (p.last_confirmed_at) v++;
+  return Math.max(0, ECHO_START - v);
+}
+let echoFacts = null;
+// which pump opened which year, and that pump's first photo (first photo wins)
+let echoOpeners = new Map(), pumpYear = new Map();
+async function loadEchoOpeners(){
+  const { data, error } = await supabase.rpc('echo_openers');
+  if (error || !data) return;
+  echoOpeners = new Map(data.map(o => [o.year, o]));
+  pumpYear = new Map(data.map(o => [o.pump_id, o.year]));
+}
+function photoUrl(path){
+  return supabase.storage.from('pump-photos').getPublicUrl(path).data.publicUrl;
+}
+let echoWitness = new Map();
+async function loadEchoWitness(){
+  const { data, error } = await supabase.from('echo_witness').select('*');
+  if (error || !data) return;
+  echoWitness = new Map(data.map(w => [w.year, w]));
+}
+// close whatever is open and bring the reader to a pump's stories
+function goStory(pumpId){
+  const p = pumps.get(pumpId);
+  ecModal.hidden = true; ecPop.hidden = true; lightbox.hidden = true;
+  document.getElementById('nwModal').hidden = true;
+  if (!p) return;
+  map.flyTo({ center:[p.lng, p.lat], zoom:16.5 });
+  openSheet(pumpId);
+  setTimeout(() => { if (sStories.scrollIntoView) sStories.scrollIntoView({ behavior:'smooth', block:'start' }); }, 700);
+}
+async function loadEchoFacts(){
+  loadEchoOpeners();
+  await loadEchoWitness();
+  // facts come through a server function that only returns opened years
+  const { data, error } = await supabase.rpc('unlocked_facts');
+  echoFacts = error ? [] : (data || []);
+  return echoFacts;
+}
+function factText(f){ return f['text_' + lang] || f.text_en || ''; }
+function yearLabel(f){
+  return (f.dating === 'circa' || f.dating === 'era') ? t('dt_ca') + ' ' + f.year : String(f.year);
+}
+function factCard(f, inLightbox){
+  const c = document.createElement('div');
+  c.className = 'ecCard';
+  c.dataset.year = f.year;
+  const yr = document.createElement('div'); yr.className = 'yr'; yr.textContent = yearLabel(f);
+  const tag = document.createElement('div'); tag.className = 'tag';
+  tag.textContent = [t('th_' + f.theme), f.dating !== 'exact' ? t('dt_' + f.dating) : null]
+    .filter(Boolean).join(' \u00b7 ');
+  const b = document.createElement('div'); b.className = 'body'; b.textContent = factText(f);
+  c.append(yr, tag, b);
+  const w = echoWitness.get(f.year);
+  if (w){
+    const wb = document.createElement('div'); wb.className = 'ecWit';
+    const wl = document.createElement('div'); wl.className = 'wl';
+    wl.textContent = t('witness') + ' \u00b7 ' + w.credit.toUpperCase();
+    const wq = document.createElement('div'); wq.className = 'wq';
+    wq.textContent = '\u201e' + (w['quote_' + lang] || w.quote_de) + '\u201c';
+    if (lang !== 'de') wq.textContent = '\u201c' + (w['quote_' + lang] || w.quote_de) + '\u201d';
+    const go = document.createElement('button'); go.className = 'more'; go.textContent = t('readStory');
+    go.addEventListener('click', (e) => { e.stopPropagation(); goStory(w.pump_id); });
+    wb.append(wl, wq, go);
+    c.appendChild(wb);
+  }
+  if (f.source_url){
+    const a = document.createElement('a'); a.className = 'src';
+    a.href = f.source_url; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = t('ecSource') + ' \u2197';
+    c.appendChild(a);
+  }
+  const o = echoOpeners.get(f.year);
+  if (o){
+    const row = document.createElement('div');
+    row.className = 'ecOpen';
+    if (o.photo_path){
+      const im = document.createElement('img');
+      im.loading = 'lazy'; im.alt = '';
+      im.src = photoUrl(o.photo_path);
+      row.appendChild(im);
+    }
+    const tx = document.createElement('span');
+    tx.textContent = [t('ecOpenedBy'), o.ref ? t('station') + ' ' + o.ref : null, o.district]
+      .filter(Boolean).join(' \u00b7 ');
+    row.appendChild(tx);
+    row.addEventListener('click', () => {
+      if (o.photo_path){
+        // the pump's first photo, full size, with a way to its station
+        lbPump = o.pump_id;
+        lbGoto.textContent = t('toStation') + (o.ref ? ' \u00b7 ' + o.ref : '');
+        lbGoto.hidden = false;
+        lbEcho.hidden = true;
+        lbImg.src = photoUrl(o.photo_path);
+        lightbox.hidden = false;
+      } else {
+        const p = pumps.get(o.pump_id);
+        ecModal.hidden = true; ecPop.hidden = true;
+        if (!p) return;
+        map.flyTo({ center:[p.lng, p.lat], zoom:16.5 });
+        openSheet(o.pump_id);
+      }
+    });
+    c.appendChild(row);
+  }
+  return c;
+}
+// open the archive straight at a given year
+async function openEchoAt(y){
+  ecModal.hidden = false;
+  await loadEchoFacts();
+  await loadEchoOpeners();
+  renderEcho();
+  const card = document.querySelector('#ecList .ecCard[data-year="' + y + '"]');
+  if (card && card.scrollIntoView) card.scrollIntoView({ block:'start' });
+}
+const ecModal = document.getElementById('ecModal');
+function renderEcho(){
+  if (ecModal.hidden) return;
+  const y = echoYear();
+  document.getElementById('ecNow').textContent = t('ecNow') + ' ' + y;
+  const list = document.getElementById('ecList');
+  list.innerHTML = '';
+  if (y > 0){
+    const lock = document.createElement('div'); lock.className = 'ecLock';
+    lock.textContent = '\u25cc ' + (y - 1) + ' \u00b7 ' + t('ecNext');
+    list.appendChild(lock);
+  }
+  const byYear = new Map((echoFacts || []).map(f => [f.year, f]));
+  // most recently opened year first, back up to 1968; consecutive empty
+  // years fold into a single line so the real facts are never buried
+  let gapStart = null;
+  const flushGap = (end) => {
+    if (gapStart == null) return;
+    const p = document.createElement('div'); p.className = 'ecPend';
+    p.textContent = (gapStart === end ? gapStart : gapStart + '\u2013' + end) + ' \u00b7 ' + t('ecPending');
+    list.appendChild(p);
+    gapStart = null;
+  };
+  for (let yr = y; yr <= ECHO_START; yr++){
+    const f = byYear.get(yr);
+    if (f){ flushGap(yr - 1); list.appendChild(factCard(f)); }
+    else if (gapStart == null) gapStart = yr;
+  }
+  flushGap(ECHO_START);
+}
+window.__ecRender = () => { renderEcho(); if (!ecPop.hidden && ecPopYear != null) fillEchoPop(ecPopYear); };
+document.getElementById('ecBtn').addEventListener('click', async () => {
+  ecModal.hidden = false;
+  renderEcho();
+  showTip('qc-tip-echo', 'ecTipTitle', 'ecTipBody');
+  await loadEchoFacts();
+  renderEcho();
+});
+document.getElementById('ecClose').addEventListener('click', () => { ecModal.hidden = true; });
+
+// the popup for whoever opens a new year
+const ecPop = document.getElementById('ecPop');
+let ecPopYear = null;
+function fillEchoPop(y){
+  document.getElementById('ecPopHead').textContent = t('echo') + ' ' + y;
+  document.getElementById('ecPopSub').textContent = t('ecUnlocked');
+  document.getElementById('ecPopAll').textContent = t('ecAll');
+  const body = document.getElementById('ecPopBody');
+  body.innerHTML = '';
+  const f = (echoFacts || []).find(x => x.year === y);
+  if (f) body.appendChild(factCard(f));
+  const o = echoOpeners.get(y);
+  if (o){
+    const n = document.createElement('div');
+    n.className = 'ecNudge';
+    n.textContent = o.photo_path ? t('ecNudgeHas') : t('ecNudgeNo');
+    body.appendChild(n);
+  }
+  else {
+    const p = document.createElement('div'); p.className = 'ecPend';
+    p.textContent = t('ecPending'); body.appendChild(p);
+  }
+}
+window.__ecOpened = async (y) => {
+  await loadEchoFacts();
+  await loadEchoOpeners();
+  ecPopYear = y;
+  fillEchoPop(y);
+  ecPop.hidden = false;
+};
+document.getElementById('ecPopOk').addEventListener('click', () => { ecPop.hidden = true; });
+document.getElementById('ecPopAll').addEventListener('click', async () => {
+  ecPop.hidden = true;
+  ecModal.hidden = false;
+  renderEcho();
+});
+
+// ---------- kiez challenge ----------
+const kzModal = document.getElementById('kzModal');
+document.getElementById('kzBtn').addEventListener('click', () => {
+  renderKiez(); kzModal.hidden = false;
+  showTip('qc-tip-kieze', 'kzTipTitle', 'kzTipBody');
+});
+document.getElementById('kzClose').addEventListener('click', () => { kzModal.hidden = true; });
+kzModal.addEventListener('click', (e) => { if (e.target === kzModal) kzModal.hidden = true; });
+
+function renderKiez(){
+  const agg = new Map();
+  let totAll = 0, recAll = 0;
+  for (const r of pumps.values()){
+    const k = (r.district || '').trim();
+    if (!k) continue;
+    if (!agg.has(k)) agg.set(k, { tot:0, rec:0, w:0, b:0, m:0 });
+    const a = agg.get(k);
+    a.tot++; totAll++;
+    if (r.current_status === 'working'){ a.w++; }
+    else if (r.current_status === 'broken'){ a.b++; }
+    else if (r.current_status === 'missing'){ a.m++; }
+    if (r.last_confirmed_at){ a.rec++; recAll++; }
+  }
+  kzTotal.textContent = t('kzNet') + ': ' + recAll + '/' + totAll + ' ' + t('kzReceived');
+  if (totAll < pumps.size) console.warn('Quellcode: ' + (pumps.size - totAll) +
+    ' pumps have no Kiez assigned and are absent from this board.');
+  const list = document.getElementById('kzList');
+  list.innerHTML = '';
+  if (!agg.size){
+    const d = document.createElement('div');
+    d.className = 'kzEmpty'; d.textContent = t('kzEmpty');
+    list.appendChild(d);
+    return;
+  }
+  const rows = [...agg.entries()]
+    .map(([name, a]) => ({ name, ...a, pct: a.rec / a.tot }))
+    .sort((x, y) => y.pct - x.pct || y.rec - x.rec || x.name.localeCompare(y.name));
+  rows.forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'kzRow';
+    d.innerHTML = '<span class="rk"></span><span class="nm"></span>' +
+      '<span class="ct"></span><span class="pc"></span>' +
+      '<span class="kzBar"><i class="g"></i><i class="b"></i><i class="m"></i></span>';
+    d.querySelector('.rk').textContent = (i + 1) + '.';
+    d.querySelector('.nm').textContent = r.name;
+    d.querySelector('.ct').textContent = r.rec + '/' + r.tot;
+    d.querySelector('.pc').textContent = (r.pct * 100).toFixed(r.pct > 0 && r.pct < 0.1 ? 1 : 0) + '%';
+    const gw = r.w ? Math.max(r.w / r.tot * 100, 1.5) : 0;
+    const bw = r.b ? Math.max(r.b / r.tot * 100, 1.5) : 0;
+    const mw = r.m ? Math.max(r.m / r.tot * 100, 1.5) : 0;
+    const gEl = d.querySelector('.kzBar i.g'), bEl = d.querySelector('.kzBar i.b'),
+          mEl = d.querySelector('.kzBar i.m');
+    gEl.style.left = '0'; gEl.style.width = gw + '%';
+    bEl.style.left = gw + '%'; bEl.style.width = bw + '%';
+    mEl.style.left = (gw + bw) + '%'; mEl.style.width = mw + '%';
+    list.appendChild(d);
+  });
+}
+
+// ---------- geofence (level 1, client-side) ----------
+const RANGE_M = 30;
+let watchId = null, userPos = null, geoErr = false, gateOpen = false;
+
+function distM(a1, o1, a2, o2){
+  const R = 6371000, r = Math.PI / 180;
+  const dA = (a2 - a1) * r, dO = (o2 - o1) * r;
+  const s = Math.sin(dA/2)**2 + Math.cos(a1*r) * Math.cos(a2*r) * Math.sin(dO/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function fmtDist(d){
+  return d < 1000 ? Math.round(d) + ' M'
+    : (d/1000).toFixed(1).replace('.', ['de','fr','ru','tr'].includes(lang) ? ',' : '.') + ' KM';
+}
+function applyGate(){
+  [btnWorks, btnBroken, btnMissing, btnStory, btnStorySend].forEach(b => b.disabled = !gateOpen);
+  const add = sPhotos.querySelector('.ph.add');
+  if (add) add.disabled = !gateOpen;
+  if (!gateOpen) storyForm.classList.remove('open');
+}
+function updateRange(){
+  if (!current) return;
+  if (geoErr){
+    gateOpen = false;
+    sRange.textContent = '\u2298 ' + t('needLoc') + ' \u00b7 ' + t('locHelpShort'); sRange.style.color = 'var(--amber)';
+    sRange.classList.add('tap');
+  } else if (!userPos){
+    gateOpen = false;
+    if (locStuck){ sRange.textContent = '? ' + t('locStuck'); sRange.style.color = 'var(--amber)'; }
+    else { sRange.textContent = '\u2026 ' + t('locWait'); sRange.style.color = 'var(--utility)'; }
+    sRange.classList.toggle('tap', locStuck);
+  } else {
+    sRange.classList.remove('tap');
+    const d = distM(userPos[0], userPos[1], current.lat, current.lng);
+    if (d <= RANGE_M){
+      gateOpen = true;
+      sRange.textContent = '\u25CF ' + t('inRange') + ' \u00B7 ' + fmtDist(d);
+      sRange.style.color = 'var(--signal)';
+    } else {
+      gateOpen = false;
+      sRange.textContent = '\u25CB ' + t('outRange') + ' \u00B7 ' + fmtDist(d);
+      sRange.style.color = 'var(--lost)';
+    }
+  }
+  applyGate();
+}
+// One location watch for the whole app: station card, Peilung and the map's locate button.
+// If the browser never answers (no prompt shown, or an in-app view that cannot ask),
+// say so after a few seconds and offer help instead of waiting forever.
+const UA = navigator.userAgent || '';
+const IS_ANDROID = /Android/i.test(UA);
+const IN_APP_VIEW = /; wv\)|FBAN|FBAV|Instagram|Line\/|GSA\//.test(UA);
+const STUCK_MS = 8000;
+let locStuck = false, stuckTimer = null, permState = null, locateOn = false, locateFly = false, meMarker = null, locBtn = null;
+function geoRefresh(){ updateRange(); updatePeilung(); paintLocate(); }
+// after a tap on the locate button, any trouble opens the help once
+function locateTrouble(){ if (locateOn && locateFly){ locateFly = false; showLocHelp(); } }
+function onFix(p){
+  clearTimeout(stuckTimer); locStuck = false; geoErr = false;
+  userPos = [p.coords.latitude, p.coords.longitude];
+  trackCourse();
+  if (locateOn) showMe();
+  geoRefresh();
+}
+function onGeoErr(){
+  clearTimeout(stuckTimer); locStuck = false;
+  geoErr = true; userPos = null;
+  geoRefresh();
+  locateTrouble();
+}
+function startWatch(){
+  if (watchId != null) return;
+  if (!('geolocation' in navigator)){ geoErr = true; geoRefresh(); locateTrouble(); return; }
+  if (permState === 'denied'){ geoErr = true; geoRefresh(); locateTrouble(); return; }
+  locStuck = false;
+  clearTimeout(stuckTimer);
+  stuckTimer = setTimeout(() => {
+    if (!userPos && !geoErr){
+      locStuck = true; geoRefresh();
+      locateTrouble();
+    }
+  }, STUCK_MS);
+  watchId = navigator.geolocation.watchPosition(onFix, onGeoErr,
+    { enableHighAccuracy:true, maximumAge:10000, timeout:20000 });
+}
+function stopWatch(){
+  if (watchId != null && !pgOn && !current && !locateOn){
+    navigator.geolocation.clearWatch(watchId); watchId = null;
+    clearTimeout(stuckTimer); locStuck = false;
+  }
+}
+function restartWatch(){
+  if (watchId != null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  geoErr = false; locStuck = false;
+  if (current || pgOn || locateOn) startWatch();
+  geoRefresh();
+}
+if (navigator.permissions && navigator.permissions.query){
+  navigator.permissions.query({ name:'geolocation' }).then((st) => {
+    permState = st.state;
+    st.onchange = () => {
+      permState = st.state;
+      if (st.state === 'granted') restartWatch();
+      else if (st.state === 'denied'){ geoErr = true; userPos = null; geoRefresh(); }
+    };
+  }).catch(() => {});
+}
+
+// the map's locate button, sharing the watch above
+class LocateCtl {
+  onAdd(){
+    const box = document.createElement('div');
+    box.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'maplibregl-ctrl-geolocate';
+    b.setAttribute('aria-label', t('locateLbl'));
+    b.innerHTML = '<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>';
+    b.addEventListener('click', onLocateTap);
+    box.appendChild(b);
+    locBtn = b;
+    return box;
+  }
+  onRemove(){}
+}
+function onLocateTap(){
+  if (locateOn && userPos){
+    locateOn = false; locateFly = false;
+    if (meMarker){ meMarker.remove(); meMarker = null; }
+    stopWatch();
+    if (!pgOn && !current) userPos = null;
+    paintLocate();
+    return;
+  }
+  locateOn = true; locateFly = true;
+  if (geoErr) restartWatch(); else startWatch();
+  if (userPos) showMe();
+  if (locStuck || geoErr) locateTrouble();
+  paintLocate();
+}
+function showMe(){
+  if (!userPos || !map) return;
+  const ll = [userPos[1], userPos[0]];
+  if (maplibregl.Marker){
+    if (!meMarker){
+      const el = document.createElement('div'); el.className = 'meDot';
+      meMarker = new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map);
+    } else meMarker.setLngLat(ll);
+  }
+  if (locateFly){ locateFly = false; map.flyTo({ center: ll, zoom: Math.max(map.getZoom ? map.getZoom() : 16, 16) }); }
+}
+function paintLocate(){
+  if (!locBtn) return;
+  const c = locBtn.classList;
+  c.remove('maplibregl-ctrl-geolocate-waiting', 'maplibregl-ctrl-geolocate-active', 'maplibregl-ctrl-geolocate-active-error');
+  if (!locateOn) return;
+  if (geoErr || locStuck) c.add('maplibregl-ctrl-geolocate-active-error');
+  else if (userPos) c.add('maplibregl-ctrl-geolocate-active');
+  else c.add('maplibregl-ctrl-geolocate-waiting');
+}
+sRange.addEventListener('click', () => { if (sRange.classList.contains('tap')) showLocHelp(); });
+
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const lbEcho = document.getElementById('lbEcho');
+let lbEchoYear = null;
+const closeLb = () => { lightbox.hidden = true; lbImg.src = ''; lbPump = null; lbGoto.hidden = true; lbEcho.hidden = true; };
+function setLbEcho(pumpId){
+  lbEchoYear = pumpId ? pumpYear.get(pumpId) : null;
+  if (lbEchoYear == null){ lbEcho.hidden = true; return; }
+  lbEcho.textContent = t('echo') + ' ' + lbEchoYear + ' \u2192';
+  lbEcho.hidden = false;
+}
+lbEcho.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const y = lbEchoYear;
+  closeLb();
+  glModal.hidden = true;
+  closeSheet();
+  if (y != null) openEchoAt(y);
+});
+lightbox.addEventListener('click', closeLb);
+document.getElementById('lbClose').addEventListener('click', closeLb);
+sPhotos.addEventListener('click', (e) => {
+  const cell = e.target.closest('.ph');
+  if (!cell || cell.classList.contains('add')) return;
+  const im = cell.querySelector('img');
+  if (!im || !im.src) return;
+  lbPump = null;
+  lbGoto.hidden = true;
+  setLbEcho(current && current.id);
+  lbImg.src = im.src;
+  lightbox.hidden = false;
+});
+
+// ---------- gallery ----------
+const glModal = document.getElementById('glModal');
+const glGrid = document.getElementById('glGrid');
+let glCols = 3, lbPump = null;
+document.getElementById('glBtn').addEventListener('click', () => {
+  glModal.hidden = false; loadGallery(); loadEchoOpeners();
+  showTip('qc-tip-gallery', 'glTipTitle', 'glTipBody');
+});
+document.getElementById('glClose').addEventListener('click', () => { glModal.hidden = true; });
+document.getElementById('glMinus').addEventListener('click', () => setGlCols(glCols - 1));
+document.getElementById('glPlus').addEventListener('click', () => setGlCols(glCols + 1));
+function setGlCols(n){
+  glCols = Math.min(6, Math.max(1, n));
+  glGrid.style.gridTemplateColumns = 'repeat(' + glCols + ',1fr)';
+}
+async function loadGallery(){
+  glGrid.innerHTML = '';
+  const { data, error } = await supabase.from('photos')
+    .select('storage_path,pump_id,created_at')
+    .eq('state','approved').order('created_at',{ ascending:false }).limit(300);
+  if (error || !data || !data.length){
+    glGrid.innerHTML = '<div class="glEmpty">' + t('glEmpty') + '</div>';
+    return;
+  }
+  for (const p of data){
+    const { data: u } = supabase.storage.from('pump-photos').getPublicUrl(p.storage_path);
+    const img = document.createElement('img');
+    img.loading = 'lazy'; img.alt = '';
+    img.src = u.publicUrl;
+    img.dataset.pump = p.pump_id;
+    glGrid.appendChild(img);
+  }
+}
+glGrid.addEventListener('click', (e) => {
+  const im = e.target.closest('img');
+  if (!im) return;
+  lbPump = im.dataset.pump;
+  const pr = pumps.get(lbPump);
+  lbGoto.textContent = t('toStation') + (pr && pr.ref ? ' \u00b7 ' + pr.ref : '');
+  lbGoto.hidden = false;
+  setLbEcho(lbPump);
+  lbImg.src = im.src;
+  lightbox.hidden = false;
+});
+document.getElementById('lbGoto').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const id = lbPump;
+  closeLb();
+  glModal.hidden = true;
+  ecModal.hidden = true; ecPop.hidden = true;
+  const p = pumps.get(id);
+  if (!p) return;
+  map.flyTo({ center:[p.lng, p.lat], zoom:16.5 });
+  openSheet(id);
+});
+
+const sqModal = document.getElementById('sqModal');
+document.getElementById('sqBtn').addEventListener('click', () => { sqModal.hidden = false; });
+document.getElementById('sqClose').addEventListener('click', () => { sqModal.hidden = true; });
+sqModal.addEventListener('click', (e) => { if (e.target === sqModal) sqModal.hidden = true; });
+
+btnWorks.addEventListener('click', () => report('working'));
+btnBroken.addEventListener('click', () => report('broken'));
+btnMissing.addEventListener('click', () => report('missing'));
+
+// ---------- contributions ----------
+const COOLDOWN_MS = 60_000;
+// The cooldown exists to slow down flooding, not to stop someone documenting
+// one pump properly. It is tracked per kind of contribution, and it never
+// applies to a second contribution at the same pump.
+function cdKey(kind){ return 'qc-last-' + kind; }
+function cooldownOk(kind, pumpId){
+  const last = Number(localStorage.getItem(cdKey(kind)) || 0);
+  const lastPump = localStorage.getItem(cdKey(kind) + '-pump');
+  if (pumpId && lastPump === pumpId) return true;
+  return Date.now() - last > COOLDOWN_MS;
+}
+function markContrib(kind, pumpId){
+  localStorage.setItem(cdKey(kind), String(Date.now()));
+  if (pumpId) localStorage.setItem(cdKey(kind) + '-pump', pumpId);
+}
+function toast(msg, bad){
+  sToast.textContent = msg;
+  sToast.style.color = bad ? 'var(--lost)' : 'var(--signal)';
+}
+
+// stories of one pump; falls back if the database has no credit column yet
+async function storyQuery(pumpId){
+  const cols = 'body,body_de,body_en,body_fr,body_ru,body_tr,lang,period_hint,created_at';
+  const run = (c) => supabase.from('stories').select(c)
+    .eq('pump_id', pumpId).eq('state','approved')
+    .order('created_at',{ascending:false}).limit(20);
+  const r = await run(cols + ',credit');
+  return r.error ? run(cols) : r;
+}
+async function loadContent(pumpId){
+  sStories.innerHTML = '<span class="none">' + t('noStories') + '</span>';
+  renderPhotoGrid([]);
+  const [st, ph] = await Promise.all([
+    storyQuery(pumpId),
+    supabase.from('photos').select('storage_path')
+      .eq('pump_id', pumpId).eq('state','approved')
+      .order('created_at',{ascending:false}).limit(12),
+  ]);
+  if (!current || current.id !== pumpId) return; // sheet changed meanwhile
+  if (st.data?.length){
+    sStories.innerHTML = '';
+    for (const s of st.data){
+      const d = document.createElement('div');
+      d.className = 'story' + (s.credit ? ' witness' : '');
+      const sb = storyBody(s);
+      const LONG = 600;
+      if (sb.text.length > LONG){
+        // long curated stories open with their beginning, the rest on demand
+        let cut = sb.text.lastIndexOf(' ', 480); if (cut < 200) cut = 480;
+        const head = document.createTextNode(sb.text.slice(0, cut) + ' \u2026');
+        d.appendChild(head);
+        const more = document.createElement('button');
+        more.className = 'more'; more.textContent = t('readMore');
+        more.addEventListener('click', () => { head.textContent = sb.text; more.remove(); });
+        d.appendChild(more);
+      } else d.textContent = sb.text;
+      const sig = document.createElement('span');
+      sig.className = 'sig';
+      sig.textContent = [s.credit ? s.credit.toUpperCase() : 'ANONYM',
+        (s.period_hint || new Date(s.created_at)
+          .toLocaleDateString(LOCALES[lang],{month:'2-digit',year:'numeric'})),
+        sb.note].filter(Boolean).join(' · ');
+      d.appendChild(sig);
+      sStories.appendChild(d);
+    }
+  }
+  renderPhotoGrid(ph.data ?? []);
+}
+
+function renderPhotoGrid(rows){
+  sPhotos.innerHTML = '';
+  for (const p of rows){
+    const { data } = supabase.storage.from('pump-photos').getPublicUrl(p.storage_path);
+    const cell = document.createElement('div');
+    cell.className = 'ph';
+    const img = document.createElement('img');
+    img.loading = 'lazy'; img.alt = ''; img.src = data.publicUrl;
+    cell.appendChild(img);
+    sPhotos.appendChild(cell);
+  }
+  const add = document.createElement('button');
+  add.className = 'ph add'; add.textContent = '+';
+  add.setAttribute('aria-label', t('photos'));
+  add.disabled = !gateOpen;
+  add.addEventListener('click', () => { if (gateOpen) photoInput.click(); });
+  sPhotos.appendChild(add);
+}
+
+// --- photo: re-encode via canvas = strips ALL metadata (EXIF/GPS), resizes ---
+async function processImage(file){
+  const bmp = await createImageBitmap(file, { imageOrientation:'from-image' });
+  const MAX = 1600;
+  const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * scale);
+  c.height = Math.round(bmp.height * scale);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  return new Promise((res, rej) =>
+    c.toBlob(b => b ? res(b) : rej(new Error('encode failed')), 'image/jpeg', 0.82));
+}
+
+const cfModal = document.getElementById('cfModal');
+const cfCard = document.getElementById('cfCard');
+function showConfirm(ok, msg){
+  cfCard.classList.toggle('fail', !ok);
+  cfTitle.textContent = t(ok ? 'sentTitle' : 'failTitle');
+  cfMsg.textContent = msg;
+  cfModal.hidden = false;
+}
+document.getElementById('cfOk').addEventListener('click', () => { cfModal.hidden = true; });
+cfModal.addEventListener('click', (e) => { if (e.target === cfModal) cfModal.hidden = true; });
+
+photoInput.addEventListener('change', async () => {
+  const file = photoInput.files[0];
+  photoInput.value = '';
+  if (!file || !current) return;
+  if (!gateOpen){ showConfirm(false, t('outRange')); return; }
+  if (!cooldownOk('photo', current.id)){ showConfirm(false, t('tooFast')); return; }
+  toast(t('uploading'));
+  try {
+    const blob = await processImage(file);
+    const path = current.id + '/' + crypto.randomUUID() + '.jpg';
+    const up = await supabase.storage.from('pump-photos')
+      .upload(path, blob, { contentType:'image/jpeg' });
+    if (up.error) throw up.error;
+    const ins = await supabase.from('photos')
+      .insert({ pump_id: current.id, storage_path: path });
+    if (ins.error) throw ins.error;
+    markContrib('photo', current.id);
+    toast('');
+    showConfirm(true, t('pendingThanks'));
+  } catch (e) {
+    toast('');
+    showConfirm(false, t('err') + ' (' + e.message + ')');
+  }
+});
+
+// --- story ---
+const storyForm = document.getElementById('storyForm');
+const storyText = document.getElementById('storyText');
+btnStory.addEventListener('click', () => {
+  storyForm.classList.toggle('open');
+  if (storyForm.classList.contains('open')) storyText.focus();
+});
+btnStoryCancel.addEventListener('click', () => {
+  storyForm.classList.remove('open'); storyText.value = '';
+});
+btnStorySend.addEventListener('click', async () => {
+  if (!current) return;
+  if (!gateOpen){ showConfirm(false, t('outRange')); return; }
+  const body = storyText.value.trim();
+  if (body.length < 10){ showConfirm(false, t('tooShort')); return; }
+  if (!cooldownOk('story', current.id)){ showConfirm(false, t('tooFast')); return; }
+  btnStorySend.disabled = true;
+  const { error } = await supabase.from('stories')
+    .insert({ pump_id: current.id, body, lang });
+  btnStorySend.disabled = false;
+  if (error){ showConfirm(false, t('err')); return; }
+  markContrib('story', current.id);
+  storyForm.classList.remove('open'); storyText.value = '';
+  showConfirm(true, t('pendingThanks'));
+});
+
+// ---------- boot ----------
+// ---------- first visit introduction ----------
+const inModal = document.getElementById('inModal');
+function fillIntro(){
+  const tk = tipKeys ? tipKeys.titleKey : 'introTitle';
+  const bk = tipKeys ? tipKeys.bodyKey : 'introBody';
+  document.getElementById('inTitle').textContent = t(tk);
+  const body = document.getElementById('inBody');
+  body.innerHTML = '';
+  for (const para of t(bk)){
+    const p = document.createElement('p');
+    p.textContent = para;
+    body.appendChild(p);
+  }
+  document.getElementById('inOk').textContent = t('introOk');
+  const isLoc = !!tipKeys && tipKeys.titleKey === 'locHelpTitle';
+  const retry = document.getElementById('inRetry');
+  const chrome = document.getElementById('inChrome');
+  retry.hidden = !isLoc; retry.textContent = t('locRetry');
+  chrome.hidden = !(isLoc && IN_APP_VIEW && IS_ANDROID); chrome.textContent = t('openChrome');
+  if (isLoc && IN_APP_VIEW){
+    const p = document.createElement('p');
+    p.textContent = t('wvNote'); p.style.color = 'var(--amber)';
+    body.insertBefore(p, body.firstChild);
+  }
+}
+function showLocHelp(){
+  tipFlag = 'qc-tip-loc'; tipKeys = { titleKey:'locHelpTitle', bodyKey:'locHelpBody' };
+  fillIntro(); inModal.hidden = false;
+}
+document.getElementById('inRetry').addEventListener('click', () => {
+  inModal.hidden = true;
+  if (!current && !pgOn) locateOn = true;
+  locateFly = locateOn;
+  restartWatch();
+});
+document.getElementById('inChrome').addEventListener('click', () => {
+  location.href = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;end';
+});
+let tipFlag = 'qc-intro', tipKeys = null;
+function showIntro(){ tipFlag = 'qc-intro'; tipKeys = null; fillIntro(); inModal.hidden = false; }
+// One-off explainer the first time a feature is opened.
+function showTip(flag, titleKey, bodyKey){
+  if (localStorage.getItem(flag)) return false;
+  tipFlag = flag; tipKeys = { titleKey, bodyKey };
+  fillIntro();
+  inModal.hidden = false;
+  return true;
+}
+document.getElementById('inOk').addEventListener('click', () => {
+  inModal.hidden = true;
+  localStorage.setItem(tipFlag, '1');
+});
+// every panel has one explainer, shown once and listed here for later
+const GUIDES = [
+  { flag:'qc-intro',        label:'introTitle', title:'introTitle', body:'introBody' },
+  { flag:'qc-tip-kieze',    label:'kzTitle',    title:'kzTipTitle', body:'kzTipBody' },
+  { flag:'qc-tip-journal',  label:'journal',    title:'jnTipTitle', body:'jnTipBody' },
+  { flag:'qc-tip-echo',     label:'echo',       title:'ecTipTitle', body:'ecTipBody' },
+  { flag:'qc-tip-gallery',  label:'gallery',    title:'glTipTitle', body:'glTipBody' },
+  { flag:'qc-tip-peilung',  label:'pgTitle',    title:'pgTipTitle', body:'pgTipBody' },
+  { flag:'qc-tip-fountain', label:'fountains',  title:'fnTipTitle', body:'fnTipBody' },
+  { flag:'qc-tip-voices',   label:'voices',     title:'stTipTitle', body:'stTipBody' },
+  { flag:'qc-tip-loc',      label:'locHelpTitle', title:'locHelpTitle', body:'locHelpBody' },
+];
+function renderHelpList(){
+  document.getElementById('helpTitle').textContent = t('helpTitle');
+  const list = document.getElementById('helpList');
+  list.innerHTML = '';
+  for (const g of GUIDES){
+    const b = document.createElement('button');
+    b.textContent = t(g.label);
+    b.addEventListener('click', () => {
+      sqModal.hidden = true;
+      tipFlag = g.flag;
+      tipKeys = { titleKey: g.title, bodyKey: g.body };
+      fillIntro();
+      inModal.hidden = false;
+    });
+    list.appendChild(b);
+  }
+}
+
+// ---------- first launch: pick a language, then read the introduction ----------
+const lgModal = document.getElementById('lgModal');
+function showLangPicker(){
+  const list = document.getElementById('lgList');
+  list.innerHTML = '';
+  for (const l of ALL_LANGS){
+    const b = document.createElement('button');
+    b.textContent = LANG_NAMES[l];
+    b.addEventListener('click', () => {
+      lang = l;
+      localStorage.setItem('qc-lang', lang);
+      renderLang();
+      lgModal.hidden = true;
+      showIntro();
+    });
+    list.appendChild(b);
+  }
+  lgModal.hidden = false;
+}
+if (!localStorage.getItem('qc-lang')) showLangPicker();
+else if (!localStorage.getItem('qc-intro')) showIntro();
+
+// ---------- news: one card per news item, shown once per phone, after the intro ----------
+const nwModal = document.getElementById('nwModal');
+let newsShown = false, newsCur = null;
+function newsSeen(){ try { return JSON.parse(localStorage.getItem('qc-news-seen') || '[]'); } catch(e){ return []; } }
+function markNewsSeen(id){ const s = newsSeen(); if (!s.includes(id)){ s.push(id); localStorage.setItem('qc-news-seen', JSON.stringify(s)); } }
+function fillNews(){
+  if (!newsCur) return;
+  document.getElementById('nwTag').textContent = t('newsTag');
+  document.getElementById('nwTitle').textContent = newsCur['title_' + lang] || newsCur.title_de || '';
+  document.getElementById('nwBody').textContent = newsCur['body_' + lang] || newsCur.body_de || '';
+  document.getElementById('nwRead').textContent = t('newsRead');
+  document.getElementById('nwLater').textContent = t('newsLater');
+}
+async function maybeShowNews(silent){
+  if (newsShown || !configured) return;
+  if (!lgModal.hidden || !inModal.hidden) return;   // never on top of the language choice or the intro
+  const { data, error } = await supabase.from('news').select('*').order('starts_at', { ascending:false });
+  if (error || !data) return;
+  const n = data.find(x => !newsSeen().includes(x.id));
+  if (!n) return;
+  if (silent){ markNewsSeen(n.id); return; }       // the person who revealed it is already there
+  newsShown = true; newsCur = n;
+  fillNews(); nwModal.hidden = false;
+}
+document.getElementById('nwRead').addEventListener('click', () => {
+  markNewsSeen(newsCur.id); nwModal.hidden = true;
+  if (newsCur.pump_id) goStory(newsCur.pump_id);
+});
+document.getElementById('nwLater').addEventListener('click', () => { markNewsSeen(newsCur.id); nwModal.hidden = true; });
+document.getElementById('inOk').addEventListener('click', () => { setTimeout(() => maybeShowNews(), 300); });
+
+// ---------- station links: ?p=<pump id> opens that station ----------
+function openFromLink(){
+  let pid = null;
+  try { pid = new URLSearchParams(location.search).get('p'); } catch(e){}
+  if (!pid || !pumps.has(pid)) return false;
+  const go = () => { const p = pumps.get(pid); map.flyTo({ center:[p.lng, p.lat], zoom:16.5 }); openSheet(pid); };
+  if (map.loaded && map.loaded()) go(); else map.once('load', go);
+  return true;
+}
+
+renderHelpList();
+document.getElementById('sqVersion').textContent = '\u00a9 2026 INVISIBLECHAOS \u00b7 ' + APP_VERSION;
+renderLang();
+if (!configured){
+  const n = document.getElementById('notice');
+  n.style.display = 'flex'; n.textContent = t('cfg');
+} else {
+  initMap();
+  loadPumps().then(() => {
+    renderCounts();
+    loadStoryPumps();
+    const linked = openFromLink();
+    if (!linked) setTimeout(() => maybeShowNews(), 900);
+    const apply = () => map.getSource('pumps').setData(toGeoJSON());
+    if (map.getSource('pumps')) apply();
+    else map.once('load', apply);
+  }).catch(e => {
+    const n = document.getElementById('notice');
+    n.style.display = 'flex'; n.textContent = 'ERROR: ' + e.message;
+  });
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>

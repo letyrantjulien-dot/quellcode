@@ -1,0 +1,17 @@
+{
+  "name": "Quellcode",
+  "short_name": "Quellcode",
+  "description": "Das unsichtbare Wassernetz von Berlin. 1968 Handpumpen als Stationen: Signal melden, Fotos und Geschichten senden.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05090E",
+  "theme_color": "#0D1922",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="admin.webmanifest">
+<meta name="theme-color" content="#0D1922">
+<link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png">
+<link rel="apple-touch-icon" href="admin-apple-icon.png">
+<title>QUELLCODE · KONTROLLRAUM</title>
+<link rel="stylesheet" href="./fonts.css">
+<style>
+  :root{--abyss:#05090E;--panel:#0D1922;--panel2:#122430;--signal:#57E6D2;--amber:#F0B24A;
+    --lost:#C2554A;--utility:#7A93A5;--bright:#E8F2F4;--line:#1B2F3D;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;--disp:'Space Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--abyss);color:var(--bright);font-family:var(--disp);
+    max-width:520px;margin:0 auto;min-height:100vh;padding:16px 14px 40px}
+  h1{font-size:18px;letter-spacing:.26em}
+  h1 span{color:var(--signal)}
+  .sub{font-family:var(--mono);font-size:12px;color:var(--utility);margin-top:4px;letter-spacing:.08em}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start}
+  #logout{display:none;background:none;border:1px solid var(--line);color:var(--utility);
+    font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:2px;cursor:pointer}
+
+  /* login */
+  #login{margin-top:40px}
+  label{display:block;font-family:var(--mono);font-size:12px;color:var(--utility);
+    letter-spacing:.15em;margin:14px 0 5px}
+  input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--bright);
+    font-family:var(--mono);font-size:16px;padding:12px 10px;border-radius:2px}
+  input:focus{outline:none;border-color:var(--signal)}
+  .btn{width:100%;margin-top:16px;background:var(--signal);color:var(--abyss);border:none;
+    font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.15em;
+    padding:14px;border-radius:2px;cursor:pointer}
+  .msg{font-family:var(--mono);font-size:12.5px;margin-top:12px;min-height:14px;color:var(--lost)}
+
+  /* queue */
+  #queue{display:none}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;color:var(--utility);letter-spacing:.2em;margin:22px 0 10px}
+  .eyebrow b{color:var(--amber);font-weight:500}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:2px;
+    padding:12px;margin-bottom:12px}
+  .item .pump{font-family:var(--mono);font-size:12.5px;color:var(--signal);letter-spacing:.1em}
+  .item .when{font-family:var(--mono);font-size:11px;color:var(--utility);margin-top:2px}
+  .item img{width:100%;max-height:300px;object-fit:contain;background:var(--panel2);
+    margin-top:10px;border:1px solid var(--line)}
+  .item .body{font-size:16px;line-height:1.6;color:#C4D4DC;margin-top:10px;
+    border-left:2px solid var(--line);padding-left:10px;white-space:pre-wrap;word-break:break-word}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .row button{font-family:var(--mono);font-size:13px;letter-spacing:.12em;padding:12px 4px;
+    border-radius:2px;cursor:pointer}
+  .approve{background:var(--signal);color:var(--abyss);border:none;font-weight:600}
+  .reject{background:transparent;border:1px solid var(--lost);color:var(--lost)}
+  .row button:disabled{opacity:.35}
+  .empty{font-family:var(--mono);font-size:13px;color:var(--utility)}
+  .tabs{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);
+    gap:6px;background:var(--abyss);padding:10px 0 12px;margin-top:14px}
+  .tabs button{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;padding:11px 4px;
+    background:transparent;border:1px solid var(--line);color:var(--utility);
+    border-radius:2px;cursor:pointer}
+  .tabs button.on{border-color:var(--signal);color:var(--abyss);background:var(--signal);font-weight:600}
+  .tabs button .n{font-size:11px;opacity:.85}
+  .pane{display:none}
+  .pane.on{display:block}
+  .subTabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+  .subTabs button{font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:9px 4px;
+    background:transparent;border:1px solid var(--line);color:var(--utility);
+    border-radius:2px;cursor:pointer}
+  .subTabs button.on{border-color:var(--amber);color:var(--amber)}
+
+  .trPanel{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+  .trPanel.open{display:block}
+  .trPanel label{display:block;font-family:var(--mono);font-size:11.5px;color:var(--utility);
+    letter-spacing:.15em;margin:10px 0 4px}
+  .trPanel textarea{width:100%;min-height:74px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--bright);font-family:inherit;font-size:15px;padding:9px;border-radius:2px;resize:vertical}
+  .trPanel textarea:focus{outline:none;border-color:var(--signal)}
+  .trStatus{font-family:var(--mono);font-size:11.5px;color:var(--utility);margin-top:8px;min-height:15px}
+  .trRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .trRow button{font-family:var(--mono);font-size:12px;letter-spacing:.1em;padding:11px 4px;
+    border-radius:2px;cursor:pointer}
+  .draft{background:transparent;border:1px solid var(--utility);color:var(--utility)}
+  .saveTr{background:var(--signal);color:var(--abyss);border:none;font-weight:600}
+
+  select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--bright);
+    font-family:var(--mono);font-size:14px;padding:11px 10px;border-radius:2px;margin-top:10px}
+  select:focus{outline:none;border-color:var(--signal)}
+  .item img{cursor:pointer}
+  #lightbox{position:fixed;inset:0;z-index:120;background:rgba(2,6,10,.96);
+    display:flex;align-items:center;justify-content:center}
+  #lightbox[hidden]{display:none}
+  #lightbox img{max-width:100vw;max-height:100vh;object-fit:contain;cursor:default}
+  #lbClose{position:fixed;top:14px;right:14px;background:rgba(13,25,34,.85);
+    border:1px solid var(--line);color:var(--bright);font-family:var(--mono);
+    font-size:19px;padding:8px 13px;border-radius:2px;cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>QUELL<span>CODE</span> · KONTROLLRAUM</h1>
+      <div class="sub" id="status">NOT CONNECTED</div>
+    </div>
+    <button id="logout">LOGOUT</button>
+  </div>
+
+  <div id="login">
+    <label for="email">EMAIL</label>
+    <input id="email" type="email" autocomplete="username">
+    <label for="pw">PASSWORD</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <button class="btn" id="btnLogin">CONNECT</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <div id="queue">
+    <div class="tabs">
+      <button id="tabPh" class="on">PHOTOS <span class="n">(<b id="phCount">0</b>)</span></button>
+      <button id="tabSt">STORIES <span class="n">(<b id="stCount">0</b>)</span></button>
+      <button id="tabRp">REPORT</button>
+    </div>
+
+    <div class="pane on" id="panedPh">
+      <div class="subTabs">
+        <button id="subPhQueue" class="on">IN REVIEW</button>
+        <button id="subPhPub">PUBLISHED (<b id="phPubCount">0</b>)</button>
+      </div>
+      <div id="phList"></div>
+      <div id="phPubList" style="display:none"></div>
+    </div>
+
+    <div class="pane" id="panedSt">
+      <div class="subTabs">
+        <button id="subStQueue" class="on">IN REVIEW</button>
+        <button id="subStPub">PUBLISHED (<b id="stPubCount">0</b>)</button>
+      </div>
+      <div id="stList"></div>
+      <div id="stPubList" style="display:none"></div>
+    </div>
+
+    <div class="pane" id="panedRp">
+    <div class="eyebrow">BEZIRKSAMT REPORT</div>
+    <div class="item">
+      <div class="pump" id="repCount"></div>
+      <select id="repKiez"></select>
+      <div class="row">
+        <button class="approve" id="repCsv">DOWNLOAD CSV</button>
+        <button class="reject" id="repPrint">PRINTABLE REPORT</button>
+      </div>
+    </div>
+    </div>
+  </div>
+
+<div id="lightbox" hidden>
+  <img id="lbImg" alt="">
+  <button id="lbClose" aria-label="Close">✕</button>
+</div>
+
+<script src="./config.js"></script>
+<script type="module">
+import { createClient } from './vendor/supabase-js-2.117.3.esm.js';
+
+// Read from config.js (not in the repository; copy config.example.js).
+const CFG = window.QC_CONFIG || {};
+const SUPABASE_URL = CFG.supabaseUrl;
+const SUPABASE_PUBLISHABLE_KEY = CFG.supabaseKey;
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) throw new Error('config.js missing: copy config.example.js to config.js and fill in your Supabase project');
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+const el = (id) => document.getElementById(id);
+const fmt = (iso) => new Date(iso).toLocaleString('en-GB');
+const pumpLabel = (p) => p ? [p.ref ? 'Ref '+p.ref : null, p.address, p.district]
+  .filter(Boolean).join(' · ') || 'Berlin' : 'Berlin';
+
+async function refreshSession(){
+  const { data:{ session } } = await supabase.auth.getSession();
+  if (session){
+    el('login').style.display = 'none';
+    el('queue').style.display = 'block';
+    el('logout').style.display = 'block';
+    el('status').textContent = 'CONNECTED · ' + session.user.email.toUpperCase();
+    loadQueues();
+  } else {
+    el('login').style.display = 'block';
+    el('queue').style.display = 'none';
+    el('logout').style.display = 'none';
+    el('status').textContent = 'NOT CONNECTED';
+  }
+}
+
+el('btnLogin').addEventListener('click', async () => {
+  el('loginMsg').textContent = '';
+  const { error } = await supabase.auth.signInWithPassword({
+    email: el('email').value.trim(), password: el('pw').value });
+  if (error){ el('loginMsg').textContent = 'ERROR: ' + error.message; return; }
+  refreshSession();
+});
+el('logout').addEventListener('click', async () => {
+  await supabase.auth.signOut(); refreshSession();
+});
+
+async function loadQueues(){
+  const [ph, st, phPub, stPub] = await Promise.all([
+    supabase.from('photos')
+      .select('id,storage_path,created_at,pumps(address,district,ref)')
+      .eq('state','pending').order('created_at'),
+    supabase.from('stories')
+      .select('id,body,body_de,body_en,body_fr,body_ru,body_tr,lang,created_at,pumps(address,district,ref)')
+      .eq('state','pending').order('created_at'),
+    supabase.from('photos')
+      .select('id,storage_path,created_at,pumps(address,district,ref)')
+      .eq('state','approved').order('created_at',{ascending:false}).limit(60),
+    supabase.from('stories')
+      .select('id,body,body_de,body_en,body_fr,body_ru,body_tr,lang,created_at,pumps(address,district,ref)')
+      .eq('state','approved').order('created_at',{ascending:false}).limit(60),
+  ]);
+  const [phTotal, stTotal] = await Promise.all([
+    supabase.from('photos').select('*', { count:'exact', head:true }).eq('state','approved'),
+    supabase.from('stories').select('*', { count:'exact', head:true }).eq('state','approved'),
+  ]);
+  renderPhotos(ph.data ?? []);
+  renderStories(st.data ?? []);
+  renderPublishedPhotos(phPub.data ?? [], phTotal.count);
+  renderPublishedStories(stPub.data ?? [], stTotal.count);
+  loadBroken();
+}
+
+function renderPublishedPhotos(rows, total){
+  const n = (total == null) ? rows.length : total;
+  el('phPubCount').textContent = n;
+  const list = el('phPubList');
+  list.innerHTML = rows.length ? '' : '<div class="empty">Nothing published yet.</div>';
+  if (rows.length && n > rows.length){
+    const note = document.createElement('div');
+    note.className = 'empty';
+    note.style.marginBottom = '10px';
+    note.textContent = 'Showing the ' + rows.length + ' most recent of ' + n + '.';
+    list.appendChild(note);
+  }
+  for (const r of rows){
+    const { data } = supabase.storage.from('pump-photos').getPublicUrl(r.storage_path);
+    const d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<div class="pump"></div><div class="when"></div>' +
+      '<img loading="lazy" alt=""><div class="row">' +
+      '<span></span><button class="reject">DELETE</button></div>';
+    d.querySelector('.pump').textContent = pumpLabel(r.pumps);
+    d.querySelector('.when').textContent = fmt(r.created_at);
+    d.querySelector('img').src = data.publicUrl;
+    const btn = d.querySelector('button');
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this photo permanently?')) return;
+      btn.disabled = true;
+      const { error } = await supabase.from('photos').delete().eq('id', r.id);
+      if (error){ alert(error.message); btn.disabled = false; return; }
+      await supabase.storage.from('pump-photos').remove([r.storage_path]);
+      d.remove();
+      el('phPubCount').textContent = Math.max(0, Number(el('phPubCount').textContent) - 1);
+    });
+    list.appendChild(d);
+  }
+}
+
+function renderPublishedStories(rows, total){
+  const n = (total == null) ? rows.length : total;
+  el('stPubCount').textContent = n;
+  const list = el('stPubList');
+  list.innerHTML = rows.length ? '' : '<div class="empty">Nothing published yet.</div>';
+  if (rows.length && n > rows.length){
+    const note = document.createElement('div');
+    note.className = 'empty';
+    note.style.marginBottom = '10px';
+    note.textContent = 'Showing the ' + rows.length + ' most recent of ' + n + '.';
+    list.appendChild(note);
+  }
+  for (const r of rows){
+    const d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<div class="pump"></div><div class="when"></div>' +
+      '<div class="body"></div><div class="row">' +
+      '<span></span><button class="reject">DELETE</button></div>';
+    d.querySelector('.pump').textContent = pumpLabel(r.pumps);
+    d.querySelector('.when').textContent = fmt(r.created_at) + ' · ' + r.lang.toUpperCase();
+    d.querySelector('.body').textContent = r.body;
+    const btn = d.querySelector('button');
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this story permanently?')) return;
+      btn.disabled = true;
+      const { error } = await supabase.from('stories').delete().eq('id', r.id);
+      if (error){ alert(error.message); btn.disabled = false; return; }
+      d.remove();
+      el('stPubCount').textContent = Math.max(0, Number(el('stPubCount').textContent) - 1);
+    });
+    attachTranslate(d, r);
+    list.appendChild(d);
+  }
+}
+
+function renderPhotos(rows){
+  el('phCount').textContent = rows.length;
+  const list = el('phList');
+  list.innerHTML = rows.length ? '' : '<div class="empty">Queue empty.</div>';
+  for (const r of rows){
+    const { data } = supabase.storage.from('pump-photos').getPublicUrl(r.storage_path);
+    const d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<div class="pump"></div><div class="when"></div>' +
+      '<img loading="lazy" alt=""><div class="row">' +
+      '<button class="approve">APPROVE</button>' +
+      '<button class="reject">REJECT + DELETE</button></div>';
+    d.querySelector('.pump').textContent = pumpLabel(r.pumps);
+    d.querySelector('.when').textContent = fmt(r.created_at);
+    d.querySelector('img').src = data.publicUrl;
+    const [ok, no] = d.querySelectorAll('button');
+    ok.addEventListener('click', () => decidePhoto(r, 'approved', d, [ok,no]));
+    no.addEventListener('click', () => decidePhoto(r, 'rejected', d, [ok,no]));
+    list.appendChild(d);
+  }
+}
+
+async function decidePhoto(r, state, node, btns){
+  btns.forEach(b => b.disabled = true);
+  const { error } = await supabase.from('photos')
+    .update({ state, reviewed_at: new Date().toISOString() }).eq('id', r.id);
+  if (error){ alert(error.message); btns.forEach(b => b.disabled = false); return; }
+  if (state === 'rejected'){
+    await supabase.storage.from('pump-photos').remove([r.storage_path]);
+  }
+  node.remove();
+  el('phCount').textContent = Number(el('phCount').textContent) - 1;
+}
+
+function renderStories(rows){
+  el('stCount').textContent = rows.length;
+  const list = el('stList');
+  list.innerHTML = rows.length ? '' : '<div class="empty">Queue empty.</div>';
+  for (const r of rows){
+    const d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<div class="pump"></div><div class="when"></div>' +
+      '<div class="body"></div><div class="row">' +
+      '<button class="approve">APPROVE</button>' +
+      '<button class="reject">REJECT</button></div>';
+    d.querySelector('.pump').textContent = pumpLabel(r.pumps);
+    d.querySelector('.when').textContent = fmt(r.created_at) + ' · ' + r.lang.toUpperCase();
+    d.querySelector('.body').textContent = r.body;
+    const [ok, no] = d.querySelectorAll('button');
+    const decide = async (state) => {
+      [ok,no].forEach(b => b.disabled = true);
+      const { error } = await supabase.from('stories')
+        .update({ state, reviewed_at: new Date().toISOString() }).eq('id', r.id);
+      if (error){ alert(error.message); [ok,no].forEach(b => b.disabled = false); return; }
+      d.remove();
+      el('stCount').textContent = Number(el('stCount').textContent) - 1;
+    };
+    ok.addEventListener('click', () => decide('approved'));
+    no.addEventListener('click', () => decide('rejected'));
+    attachTranslate(d, r);
+    list.appendChild(d);
+  }
+}
+
+// ---------- tabs ----------
+function showPane(which){
+  const map = { ph:'panedPh', st:'panedSt', rp:'panedRp' };
+  for (const [k, id] of Object.entries(map))
+    el(id).classList.toggle('on', k === which);
+  for (const [k, id] of Object.entries({ ph:'tabPh', st:'tabSt', rp:'tabRp' }))
+    el(id).classList.toggle('on', k === which);
+  window.scrollTo(0, 0);
+}
+el('tabPh').addEventListener('click', () => showPane('ph'));
+el('tabSt').addEventListener('click', () => showPane('st'));
+el('tabRp').addEventListener('click', () => showPane('rp'));
+
+function showSub(kind, pub){
+  el(kind + 'List').style.display = pub ? 'none' : 'block';
+  el(kind + 'PubList').style.display = pub ? 'block' : 'none';
+  el('sub' + (kind === 'ph' ? 'Ph' : 'St') + 'Queue').classList.toggle('on', !pub);
+  el('sub' + (kind === 'ph' ? 'Ph' : 'St') + 'Pub').classList.toggle('on', pub);
+}
+el('subPhQueue').addEventListener('click', () => showSub('ph', false));
+el('subPhPub').addEventListener('click', () => showSub('ph', true));
+el('subStQueue').addEventListener('click', () => showSub('st', false));
+el('subStPub').addEventListener('click', () => showSub('st', true));
+
+// ---------- translation ----------
+const LANGS = ['de','en','fr','ru','tr'];
+
+// MyMemory caps a request at roughly 500 bytes, so long memories go over in
+// sentence-sized pieces and are rejoined. It is a draft, not a final text.
+function chunk(text, max = 450){
+  const parts = text.split(/(?<=[.!?\u2026])\s+/);
+  const out = []; let buf = '';
+  for (const p of parts){
+    if ((buf + ' ' + p).trim().length > max){
+      if (buf) out.push(buf.trim());
+      buf = p.length > max ? p.slice(0, max) : p;
+    } else buf = (buf + ' ' + p).trim();
+  }
+  if (buf) out.push(buf.trim());
+  return out;
+}
+async function machineTranslate(text, from, to){
+  const pieces = chunk(text);
+  const done = [];
+  for (const piece of pieces){
+    const u = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(piece) +
+      '&langpair=' + from + '|' + to;
+    const r = await fetch(u);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const out = j && j.responseData && j.responseData.translatedText;
+    if (!out) throw new Error('no translation returned');
+    done.push(out);
+  }
+  return done.join(' ');
+}
+
+// Builds the translate panel for one story row and returns the element.
+function translationPanel(row){
+  const panel = document.createElement('div');
+  panel.className = 'trPanel';
+
+  // The stored lang is whatever the UI was set to when the story was written,
+  // which is not always the language it was written in. Let the moderator fix it.
+  const srcLab = document.createElement('label');
+  srcLab.textContent = 'ORIGINAL LANGUAGE';
+  const src = document.createElement('select');
+  for (const l of LANGS){
+    const o = document.createElement('option');
+    o.value = l; o.textContent = l.toUpperCase();
+    if (l === (row.lang || 'de')) o.selected = true;
+    src.appendChild(o);
+  }
+  panel.appendChild(srcLab); panel.appendChild(src);
+
+  const boxWrap = document.createElement('div');
+  panel.appendChild(boxWrap);
+  let boxes = {};
+  function renderBoxes(){
+    const from = src.value;
+    boxWrap.innerHTML = '';
+    boxes = {};
+    for (const to of LANGS.filter(l => l !== from)){
+      const lab = document.createElement('label');
+      lab.textContent = to.toUpperCase();
+      const ta = document.createElement('textarea');
+      ta.value = row['body_' + to] || '';
+      boxes[to] = ta;
+      boxWrap.appendChild(lab); boxWrap.appendChild(ta);
+    }
+  }
+  renderBoxes();
+  src.addEventListener('change', renderBoxes);
+
+  const status = document.createElement('div');
+  status.className = 'trStatus';
+  const rowBtns = document.createElement('div');
+  rowBtns.className = 'trRow';
+  const draft = document.createElement('button');
+  draft.className = 'draft'; draft.textContent = 'MACHINE DRAFT';
+  const save = document.createElement('button');
+  save.className = 'saveTr'; save.textContent = 'SAVE TRANSLATIONS';
+
+  draft.addEventListener('click', async () => {
+    draft.disabled = save.disabled = true;
+    const from = src.value;
+    try {
+      for (const to of Object.keys(boxes)){
+        status.textContent = 'Translating ' + from.toUpperCase() + ' to ' + to.toUpperCase() + '...';
+        boxes[to].value = await machineTranslate(row.body, from, to);
+      }
+      status.textContent = 'Draft ready. Check it before saving.';
+      status.style.color = 'var(--amber)';
+    } catch (e){
+      status.textContent = 'Translation failed: ' + e.message;
+      status.style.color = 'var(--lost)';
+    } finally { draft.disabled = save.disabled = false; }
+  });
+
+  save.addEventListener('click', async () => {
+    draft.disabled = save.disabled = true;
+    const from = src.value;
+    const patch = { lang: from };
+    // the original language needs no translation column
+    patch['body_' + from] = null;
+    for (const to of Object.keys(boxes)){
+      const v = boxes[to].value.trim();
+      patch['body_' + to] = v || null;
+    }
+    const { error } = await supabase.from('stories').update(patch).eq('id', row.id);
+    if (error){
+      status.textContent = 'Save failed: ' + error.message;
+      status.style.color = 'var(--lost)';
+    } else {
+      Object.assign(row, patch);
+      status.textContent = 'Saved.';
+      status.style.color = 'var(--signal)';
+    }
+    draft.disabled = save.disabled = false;
+  });
+
+  rowBtns.appendChild(draft); rowBtns.appendChild(save);
+  panel.appendChild(status); panel.appendChild(rowBtns);
+  return panel;
+}
+
+function attachTranslate(card, row){
+  const panel = translationPanel(row);
+  const toggle = document.createElement('button');
+  toggle.className = 'reject';
+  toggle.style.borderColor = 'var(--line)';
+  toggle.style.color = 'var(--utility)';
+  toggle.style.gridColumn = '1 / -1';
+  toggle.style.marginTop = '8px';
+  const have = LANGS.filter(l => l !== (row.lang || 'de') && row['body_' + l]).length;
+  toggle.textContent = 'TRANSLATIONS (' + have + '/' + (LANGS.length - 1) + ')';
+  toggle.addEventListener('click', () => panel.classList.toggle('open'));
+  card.appendChild(toggle);
+  card.appendChild(panel);
+}
+
+// ---------- Bezirksamt report (broken pumps) ----------
+let brokenRows = [];
+async function loadBroken(){
+  const { data, error } = await supabase.from('pumps')
+    .select('district,ref,address,lat,lng,last_confirmed_at,report_count,osm_id')
+    .eq('current_status','broken').order('district');
+  if (error){ el('repCount').textContent = 'Report data error: ' + error.message; return; }
+  brokenRows = data ?? [];
+  el('repCount').textContent = brokenRows.length + ' broken pumps in the database';
+  const districts = [...new Set(brokenRows.map(r => r.district).filter(Boolean))].sort();
+  el('repKiez').innerHTML = '<option value="">All of Berlin</option>' +
+    districts.map(d => '<option>' + d + '</option>').join('');
+}
+function filteredBroken(){
+  const k = el('repKiez').value;
+  return k ? brokenRows.filter(r => r.district === k) : brokenRows;
+}
+el('repCsv').addEventListener('click', () => {
+  const rows = filteredBroken();
+  const esc = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const head = ['Ortsteil','Brunnen-Nr','Adresse','Breitengrad','Laengengrad','Zuletzt bestaetigt','Meldungen','OSM-ID'];
+  const lines = [head.join(';')].concat(rows.map(r => [
+    r.district, r.ref, r.address, r.lat, r.lng,
+    r.last_confirmed_at ? new Date(r.last_confirmed_at).toLocaleDateString('de-DE') : '',
+    r.report_count, r.osm_id
+  ].map(esc).join(';')));
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'quellcode-defekte-brunnen' + (el('repKiez').value ? '-' + el('repKiez').value : '') + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+el('repPrint').addEventListener('click', () => {
+  const rows = filteredBroken();
+  const k = el('repKiez').value;
+  const today = new Date().toLocaleDateString('de-DE');
+  const groups = new Map();
+  rows.forEach(r => {
+    const g = r.district || 'Ohne Zuordnung';
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(r);
+  });
+  let body = '';
+  for (const [g, list] of [...groups.entries()].sort((a,b) => a[0].localeCompare(b[0]))){
+    body += '<h2>' + g + ' (' + list.length + ')</h2>' +
+      '<table><tr><th>Brunnen-Nr</th><th>Adresse</th><th>Koordinaten</th><th>Zuletzt best\u00e4tigt</th><th>Meldungen</th></tr>';
+    for (const r of list){
+      body += '<tr><td>' + (r.ref || String(r.osm_id).slice(-4)) + '</td><td>' + (r.address || '') +
+        '</td><td>' + r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</td><td>' +
+        (r.last_confirmed_at ? new Date(r.last_confirmed_at).toLocaleDateString('de-DE') : '') +
+        '</td><td>' + r.report_count + '</td></tr>';
+    }
+    body += '</table>';
+  }
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">' +
+    '<title>Quellcode \u00b7 Defekte Stra\u00dfenbrunnen</title>' +
+    '<style>body{font-family:Georgia,serif;color:#222;max-width:720px;margin:40px auto;padding:0 20px}' +
+    'h1{font-size:23px}h2{font-size:17px;margin-top:28px;border-bottom:1px solid #999;padding-bottom:4px}' +
+    'table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid #ddd}' +
+    'p.meta{color:#555;font-size:13px}@media print{body{margin:10mm}}</style></head><body>' +
+    '<h1>Defekte Stra\u00dfenbrunnen \u00b7 ' + (k || 'Berlin') + '</h1>' +
+    '<p class="meta">Stand: ' + today + ' \u00b7 ' + rows.length +
+    ' gemeldete defekte Handschwengelpumpen \u00b7 Quelle: quellcode-berlin.netlify.app (Meldungen der Nachbarschaft, vor Ort best\u00e4tigt)</p>' +
+    (rows.length ? body : '<p>Keine defekten Brunnen gemeldet.</p>') +
+    '<p class="meta">Erstellt mit Quellcode, einem Projekt von InvisibleChaos. Pumpendaten \u00a9 OpenStreetMap-Mitwirkende (ODbL).</p>' +
+    '<scr' + 'ipt>window.print()</scr' + 'ipt></body></html>');
+  w.document.close();
+});
+
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const closeLb = () => { lightbox.hidden = true; lbImg.src = ''; };
+lightbox.addEventListener('click', closeLb);
+document.getElementById('lbClose').addEventListener('click', closeLb);
+document.getElementById('queue').addEventListener('click', (e) => {
+  const im = e.target.closest('.item img');
+  if (!im || !im.src) return;
+  lbImg.src = im.src;
+  lightbox.hidden = false;
+});
+
+refreshSession();
+</script>
+</body>
+</html>
