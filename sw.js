@@ -1,5 +1,5 @@
 // QUELLCODE service worker v1
-const VERSION = 'qc-1.44.0';
+const VERSION = 'qc-1.45.0';
 const SHELL_CACHE = VERSION + '-shell';
 const RUNTIME_CACHE = VERSION + '-runtime';
 const TILE_CACHE = VERSION + '-tiles';

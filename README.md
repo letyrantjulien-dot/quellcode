@@ -2,7 +2,7 @@
 
 **A community map of Berlin's hand water pumps.** Berlin has more than two thousand street pumps (Straßenbrunnen), built as emergency water supply. Nobody keeps a public record of which ones still give water. Quellcode is a map where anyone standing at a pump can check it, take its photo and leave a story about it.
 
-Live app: https://quellcode-berlin.netlify.app · Version 1.44.0 · Five languages: German, English, French, Russian, Turkish.
+Live app: https://quellcode-berlin.netlify.app · Version 1.45.0 · Five languages: German, English, French, Russian, Turkish.
 
 It runs in any modern browser, phone first, and installs as a Progressive Web App (offline shell, cached map tiles of the areas you visited). Contributions only open when your phone says you are within 30 metres of the pump.
 
@@ -12,6 +12,7 @@ It runs in any modern browser, phone first, and installs as a Progressive Web Ap
 - **Check, photo, story.** On site, one tap reports the status. Photos are re-encoded in the browser before upload (max 1600 px), which strips EXIF and GPS data. Stories and photos are anonymous and wait for a moderator before they appear, shared under CC BY-SA 4.0.
 - **KIEZ-FUNK.** Coverage per Ortsteil, built from the official ALKIS boundaries. It shows which neighbourhoods are checked and where broken pumps cluster.
 - **ECHO.** The counter of unchecked pumps reads as a year: it started at 1968, and every first check of a pump opens the year below it, with one water fact for that year. The pump that opened a year gives it its face (its first photo). This repository carries three sample cards; the full archive lives in the app.
+- **Time-lapse.** Inside ECHO, ZEITRAFFER replays the map's story: every checked pump flashes once, in the order it was first checked, while the year counts down. Pick a speed and a format (9:16, 16:9 or 1:1) and record a video on your own device, to share or save.
 - **Journal, gallery, bearing.** Read all stories, browse all photos, or let the PEILUNG arrow lead you to the nearest unchecked pump.
 - **Drinking fountains.** A separate layer of drinking fountains, telling the official Berliner Wasserbetriebe ones from the rest. Street pumps are not drinking water; the app says so.
 - **Kontrollraum** (`admin.html`). The moderator room: review queues, translation drafts, and a printable report of broken pumps per district for the Bezirksamt.

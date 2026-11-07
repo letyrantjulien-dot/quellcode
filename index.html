@@ -260,6 +260,25 @@
   .ecPopBtns button{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;padding:12px 6px;
     border-radius:2px;cursor:pointer}
   #ecPopAll{background:transparent;border:1px solid var(--line);color:var(--signal)}
+  #tlOpen{margin:2px 16px 10px;align-self:flex-start;background:transparent;border:1px solid var(--signal);
+    color:var(--signal);font-family:var(--mono);font-size:14px;letter-spacing:.18em;padding:10px 14px;
+    border-radius:2px;cursor:pointer}
+  #tlModal{position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column}
+  #tlModal[hidden]{display:none}
+  #tlStage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px}
+  #tlCanvas{max-width:100%;max-height:100%;background:var(--abyss);box-shadow:0 0 0 1px var(--line)}
+  #tlBar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px 14px;
+    background:var(--panel);border-top:1px solid var(--line)}
+  #tlBar button{font-family:var(--mono);font-size:14px;letter-spacing:.12em;color:var(--bright);
+    background:#122430;border:1px solid var(--line);border-radius:2px;padding:11px 13px;cursor:pointer}
+  #tlBar button:focus-visible,#tlBar input:focus-visible{outline:1px solid var(--signal)}
+  #tlBar button:disabled{opacity:.4;cursor:default}
+  #tlBar #tlRec{border-color:var(--lost);color:#ffb3aa}
+  #tlBar #tlRec.on{background:var(--lost);color:#fff}
+  #tlBar #tlShare{border-color:var(--signal);color:var(--signal)}
+  .tlSpeed{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:14px;color:var(--utility);letter-spacing:.08em}
+  .tlSpeed input{width:120px;accent-color:var(--signal)}
+  #tlInfo{flex-basis:100%;font-family:var(--mono);font-size:14px;color:var(--utility);letter-spacing:.06em}
   #ecPopOk{background:var(--signal);border:none;color:var(--abyss);font-weight:600}
 
   #stModal{position:fixed;inset:0;z-index:90;background:rgba(5,9,14,.97);display:flex;flex-direction:column}
@@ -436,7 +455,25 @@
     <button class="close" id="ecClose" aria-label="Close">✕</button>
   </div>
   <div id="ecNow"></div>
+  <button id="tlOpen" data-i="tlOpenLbl">ZEITRAFFER</button>
   <div id="ecList"></div>
+</div>
+
+<div id="tlModal" hidden>
+  <div class="glHead">
+    <h3 data-i="tl">ZEITRAFFER</h3>
+    <button class="close" id="tlClose" aria-label="Close">✕</button>
+  </div>
+  <div id="tlStage"><canvas id="tlCanvas" width="1080" height="1920"></canvas></div>
+  <div id="tlBar">
+    <button id="tlPlay"></button>
+    <button id="tlRestart"></button>
+    <label class="tlSpeed"><input id="tlSpeed" type="range" min="1" max="30" step="1" value="6"><span id="tlSpeedLbl"></span></label>
+    <button id="tlFmt">9:16</button>
+    <button id="tlRec"></button>
+    <button id="tlShare" hidden></button>
+    <div id="tlInfo"></div>
+  </div>
 </div>
 
 <div id="ecPop" hidden>
@@ -581,7 +618,7 @@ const SUPABASE_PUBLISHABLE_KEY = CFG.supabaseKey;
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) throw new Error('config.js missing: copy config.example.js to config.js and fill in your Supabase project');
 // ==========================================
 
-const APP_VERSION = 'v1.44.0';   // keep in sync with the service worker cache name
+const APP_VERSION = 'v1.45.0';   // keep in sync with the service worker cache name
 const COLORS = { working:'#57E6D2', unknown:'#F0B24A', broken:'#C2554A', missing:'#7A93A5' };
 const BARS   = { working:5, unknown:2, broken:0, missing:0 };
 
@@ -607,7 +644,7 @@ const I18N = {
         kzTitle:'KIEZ-FUNK', kzReceived:'EMPFANGEN', kzNet:'GESAMTNETZ',
         kzEmpty:'Noch keine Kiez-Zuordnung vorhanden.',
         inRange:'IN REICHWEITE', outRange:'AUSSER REICHWEITE',
-        needLoc:'STANDORT FREIGEBEN, UM BEIZUTRAGEN', locWait:'SIGNAL WIRD GEORTET...', witness:"ZEITZEUGE", readStory:"ZUR GESCHICHTE", readMore:"WEITERLESEN", newsTag:"NEU BEI QUELLCODE", newsRead:"GESCHICHTE LESEN", newsLater:"SP\u00c4TER", locHelpShort:"HILFE", locStuck:"KEINE STANDORTABFRAGE? HIER TIPPEN", locHelpTitle:"STANDORT FREIGEBEN", locRetry:"ERNEUT ORTEN", openChrome:"IN CHROME \u00d6FFNEN", locateLbl:"Mein Standort", wvNote:"Quellcode l\u00e4uft gerade in der eingebauten Ansicht einer anderen App, zum Beispiel einer Mail-App. Dort fragt das Handy oft gar nicht nach dem Standort. \u00d6ffne Quellcode direkt in Chrome.", locHelpBody:["Quellcode braucht deinen Standort nur f\u00fcr eine Pr\u00fcfung: Stehst du h\u00f6chstens 30 Meter von der Pumpe entfernt? Der Standort bleibt auf deinem Handy und wird nie gesendet.", "Android mit Chrome: Tippe in der Adresszeile auf das Symbol links neben der Adresse, dann auf \u201eBerechtigungen\u201c, und stelle \u201eStandort\u201c auf \u201eZulassen\u201c.", "Android allgemein: Schalte den Standort in den Schnelleinstellungen ein. Unter Einstellungen > Apps > Chrome > Berechtigungen > Standort w\u00e4hle \u201eNur w\u00e4hrend der Nutzung zulassen\u201c.", "iPhone: Einstellungen > Datenschutz & Sicherheit > Ortungsdienste > Safari-Websites > \u201eBeim Verwenden der App\u201c.", "Aus einer Mail- oder Social-Media-App ge\u00f6ffnet? \u00d6ffne die Seite direkt im Browser. Danach auf ERNEUT ORTEN tippen."],
+        needLoc:'STANDORT FREIGEBEN, UM BEIZUTRAGEN', locWait:'SIGNAL WIRD GEORTET...', tl:"ZEITRAFFER", tlOpenLbl:"\u25b6 ZEITRAFFER", tlPlay:"PLAY", tlPause:"PAUSE", tlRestart:"VON VORN", tlSpeed:"PUMPEN/S", tlRec:"AUFNEHMEN", tlStop:"STOPP", tlShare:"TEILEN", tlSave:"SPEICHERN", tlChecked:"GEPR\u00dcFT", tlSaved:"Video fertig. Tippe auf TEILEN oder SPEICHERN.", tlNoRec:"Dieser Browser kann hier kein Video aufnehmen. Chrome auf Android oder am Computer kann es.", tlLoading:"Lade die Pr\u00fcfungen \u2026", tlReady:"{n} gepr\u00fcfte Pumpen \u00b7 L\u00e4nge {d}", tlHead:"QUELLCODE \u00b7 BERLINER STRASSENBRUNNEN", tlCredit:"Pumpen \u00a9 OpenStreetMap-Mitwirkende (ODbL) \u00b7 quellcode-berlin.netlify.app", tlTipTitle:"ZEITRAFFER", tlTipBody:["Hier l\u00e4uft die Geschichte der Karte im Zeitraffer: Jede gepr\u00fcfte Pumpe blitzt einmal auf, in der Reihenfolge, in der sie zum ersten Mal gepr\u00fcft wurde. Dazu z\u00e4hlt das ECHO-Jahr von 1968 abw\u00e4rts.", "W\u00e4hle Tempo und Format und tippe auf AUFNEHMEN. Das Video entsteht auf deinem Ger\u00e4t, danach kannst du es teilen oder speichern. Die Farben zeigen den heutigen Zustand jeder Pumpe."], witness:"ZEITZEUGE", readStory:"ZUR GESCHICHTE", readMore:"WEITERLESEN", newsTag:"NEU BEI QUELLCODE", newsRead:"GESCHICHTE LESEN", newsLater:"SP\u00c4TER", locHelpShort:"HILFE", locStuck:"KEINE STANDORTABFRAGE? HIER TIPPEN", locHelpTitle:"STANDORT FREIGEBEN", locRetry:"ERNEUT ORTEN", openChrome:"IN CHROME \u00d6FFNEN", locateLbl:"Mein Standort", wvNote:"Quellcode l\u00e4uft gerade in der eingebauten Ansicht einer anderen App, zum Beispiel einer Mail-App. Dort fragt das Handy oft gar nicht nach dem Standort. \u00d6ffne Quellcode direkt in Chrome.", locHelpBody:["Quellcode braucht deinen Standort nur f\u00fcr eine Pr\u00fcfung: Stehst du h\u00f6chstens 30 Meter von der Pumpe entfernt? Der Standort bleibt auf deinem Handy und wird nie gesendet.", "Android mit Chrome: Tippe in der Adresszeile auf das Symbol links neben der Adresse, dann auf \u201eBerechtigungen\u201c, und stelle \u201eStandort\u201c auf \u201eZulassen\u201c.", "Android allgemein: Schalte den Standort in den Schnelleinstellungen ein. Unter Einstellungen > Apps > Chrome > Berechtigungen > Standort w\u00e4hle \u201eNur w\u00e4hrend der Nutzung zulassen\u201c.", "iPhone: Einstellungen > Datenschutz & Sicherheit > Ortungsdienste > Safari-Websites > \u201eBeim Verwenden der App\u201c.", "Aus einer Mail- oder Social-Media-App ge\u00f6ffnet? \u00d6ffne die Seite direkt im Browser. Danach auf ERNEUT ORTEN tippen."],
         photoRule:'Regel: Das erste Foto einer Station zeigt ihre Brunnennummer, damit klar ist, welche Pumpe gemeint ist. Die Pr\u00fcfung achtet darauf.',
         sentTitle:'\u00dcBERTRAGUNG EMPFANGEN', failTitle:'\u00dcBERTRAGUNG FEHLGESCHLAGEN',
         gallery:'GALERIE', toStation:'ZUR STATION', glEmpty:'Noch keine ver\u00f6ffentlichten Fotos.',
@@ -671,7 +708,7 @@ const I18N = {
         kzTitle:'KIEZ RADIO', kzReceived:'RECEIVED', kzNet:'WHOLE NETWORK',
         kzEmpty:'No Kiez assignment yet.',
         inRange:'IN RANGE', outRange:'OUT OF RANGE',
-        needLoc:'ENABLE LOCATION TO CONTRIBUTE', locWait:'LOCATING SIGNAL...', witness:"WITNESS", readStory:"TO THE STORY", readMore:"READ MORE", newsTag:"NEW ON QUELLCODE", newsRead:"READ THE STORY", newsLater:"LATER", locHelpShort:"HELP", locStuck:"NO LOCATION PROMPT? TAP HERE", locHelpTitle:"ENABLE LOCATION", locRetry:"LOCATE AGAIN", openChrome:"OPEN IN CHROME", locateLbl:"My location", wvNote:"Quellcode is running inside another app\u2019s built-in view, for example a mail app. There the phone often never asks for your location. Open Quellcode directly in Chrome.", locHelpBody:["Quellcode needs your location for one check only: are you within 30 metres of the pump? Your location stays on your phone and is never sent.", "Android with Chrome: in the address bar, tap the icon left of the address, then \u201cPermissions\u201d, and set \u201cLocation\u201d to \u201cAllow\u201d.", "Android in general: turn on location in the quick settings. Under Settings > Apps > Chrome > Permissions > Location, choose \u201cAllow only while using the app\u201d.", "iPhone: Settings > Privacy & Security > Location Services > Safari Websites > \u201cWhile Using the App\u201d.", "Opened from a mail or social media app? Open the page directly in your browser. Then tap LOCATE AGAIN."],
+        needLoc:'ENABLE LOCATION TO CONTRIBUTE', locWait:'LOCATING SIGNAL...', tl:"TIME-LAPSE", tlOpenLbl:"\u25b6 TIME-LAPSE", tlPlay:"PLAY", tlPause:"PAUSE", tlRestart:"RESTART", tlSpeed:"PUMPS/S", tlRec:"RECORD", tlStop:"STOP", tlShare:"SHARE", tlSave:"SAVE", tlChecked:"CHECKED", tlSaved:"Video ready. Tap SHARE or SAVE.", tlNoRec:"This browser cannot record video here. Chrome on Android or on a computer can.", tlLoading:"Loading the checks\u2026", tlReady:"{n} checked pumps \u00b7 length {d}", tlHead:"QUELLCODE \u00b7 BERLIN STREET PUMPS", tlCredit:"Pumps \u00a9 OpenStreetMap contributors (ODbL) \u00b7 quellcode-berlin.netlify.app", tlTipTitle:"TIME-LAPSE", tlTipBody:["Here the story of the map plays as a time-lapse: every checked pump flashes once, in the order it was first checked, while the ECHO year counts down from 1968.", "Choose a speed and a format, then tap RECORD. The video is made on your device; afterwards you can share it or save it. The colours show each pump as it is today."], witness:"WITNESS", readStory:"TO THE STORY", readMore:"READ MORE", newsTag:"NEW ON QUELLCODE", newsRead:"READ THE STORY", newsLater:"LATER", locHelpShort:"HELP", locStuck:"NO LOCATION PROMPT? TAP HERE", locHelpTitle:"ENABLE LOCATION", locRetry:"LOCATE AGAIN", openChrome:"OPEN IN CHROME", locateLbl:"My location", wvNote:"Quellcode is running inside another app\u2019s built-in view, for example a mail app. There the phone often never asks for your location. Open Quellcode directly in Chrome.", locHelpBody:["Quellcode needs your location for one check only: are you within 30 metres of the pump? Your location stays on your phone and is never sent.", "Android with Chrome: in the address bar, tap the icon left of the address, then \u201cPermissions\u201d, and set \u201cLocation\u201d to \u201cAllow\u201d.", "Android in general: turn on location in the quick settings. Under Settings > Apps > Chrome > Permissions > Location, choose \u201cAllow only while using the app\u201d.", "iPhone: Settings > Privacy & Security > Location Services > Safari Websites > \u201cWhile Using the App\u201d.", "Opened from a mail or social media app? Open the page directly in your browser. Then tap LOCATE AGAIN."],
         photoRule:'Rule: the first photo of a station must show its pump number, so it is clear which pump this is. Moderation checks for this.',
         sentTitle:'TRANSMISSION RECEIVED', failTitle:'TRANSMISSION FAILED',
         gallery:'GALLERY', toStation:'TO THE STATION', glEmpty:'No published photos yet.',
@@ -735,7 +772,7 @@ const I18N = {
         kzTitle:'RADIO KIEZ', kzReceived:'RE\u00c7U', kzNet:'R\u00c9SEAU ENTIER',
         kzEmpty:'Pas encore d\u2019affectation par Kiez.',
         inRange:'\u00c0 PORT\u00c9E', outRange:'HORS DE PORT\u00c9E',
-        needLoc:'ACTIVEZ LA LOCALISATION POUR CONTRIBUER', locWait:'LOCALISATION DU SIGNAL...', witness:"T\u00c9MOIN", readStory:"VERS LE R\u00c9CIT", readMore:"LIRE LA SUITE", newsTag:"NOUVEAU SUR QUELLCODE", newsRead:"LIRE LE R\u00c9CIT", newsLater:"PLUS TARD", locHelpShort:"AIDE", locStuck:"PAS DE DEMANDE DE POSITION\u00a0? TOUCHEZ ICI", locHelpTitle:"ACTIVER LA LOCALISATION", locRetry:"RELOCALISER", openChrome:"OUVRIR DANS CHROME", locateLbl:"Ma position", wvNote:"Quellcode s\u2019ouvre en ce moment dans la vue int\u00e9gr\u00e9e d\u2019une autre appli, par exemple une appli de messagerie. L\u00e0, le t\u00e9l\u00e9phone ne demande souvent jamais la position. Ouvrez Quellcode directement dans Chrome.", locHelpBody:["Quellcode n\u2019utilise votre position que pour une seule v\u00e9rification\u00a0: \u00eates-vous \u00e0 30\u00a0m\u00e8tres au plus de la pompe\u00a0? La position reste sur votre t\u00e9l\u00e9phone et n\u2019est jamais envoy\u00e9e.", "Android avec Chrome\u00a0: dans la barre d\u2019adresse, touchez l\u2019ic\u00f4ne \u00e0 gauche de l\u2019adresse, puis \u00ab\u00a0Autorisations\u00a0\u00bb, et r\u00e9glez \u00ab\u00a0Position\u00a0\u00bb sur \u00ab\u00a0Autoriser\u00a0\u00bb.", "Android en g\u00e9n\u00e9ral\u00a0: activez la localisation dans les r\u00e9glages rapides. Dans Param\u00e8tres > Applications > Chrome > Autorisations > Position, choisissez \u00ab\u00a0Autoriser seulement si l\u2019appli est en cours d\u2019utilisation\u00a0\u00bb.", "iPhone\u00a0: R\u00e9glages > Confidentialit\u00e9 et s\u00e9curit\u00e9 > Service de localisation > Sites web Safari > \u00ab\u00a0Lorsque l\u2019app est active\u00a0\u00bb.", "Ouvert depuis une appli de messagerie ou un r\u00e9seau social\u00a0? Ouvrez la page directement dans le navigateur. Puis touchez RELOCALISER."],
+        needLoc:'ACTIVEZ LA LOCALISATION POUR CONTRIBUER', locWait:'LOCALISATION DU SIGNAL...', tl:"ACC\u00c9L\u00c9R\u00c9", tlOpenLbl:"\u25b6 ACC\u00c9L\u00c9R\u00c9", tlPlay:"LECTURE", tlPause:"PAUSE", tlRestart:"DEPUIS LE D\u00c9BUT", tlSpeed:"POMPES/S", tlRec:"ENREGISTRER", tlStop:"STOP", tlShare:"PARTAGER", tlSave:"T\u00c9L\u00c9CHARGER", tlChecked:"V\u00c9RIFI\u00c9ES", tlSaved:"Vid\u00e9o pr\u00eate. Touchez PARTAGER ou T\u00c9L\u00c9CHARGER.", tlNoRec:"Ce navigateur ne peut pas enregistrer de vid\u00e9o ici. Chrome sur Android ou sur ordinateur le peut.", tlLoading:"Chargement des v\u00e9rifications\u2026", tlReady:"{n} pompes v\u00e9rifi\u00e9es \u00b7 dur\u00e9e {d}", tlHead:"QUELLCODE \u00b7 POMPES DE RUE DE BERLIN", tlCredit:"Pompes \u00a9 contributeurs OpenStreetMap (ODbL) \u00b7 quellcode-berlin.netlify.app", tlTipTitle:"ACC\u00c9L\u00c9R\u00c9", tlTipBody:["Ici, l\u2019histoire de la carte d\u00e9file en acc\u00e9l\u00e9r\u00e9\u00a0: chaque pompe v\u00e9rifi\u00e9e s\u2019allume une fois, dans l\u2019ordre de sa premi\u00e8re v\u00e9rification, pendant que l\u2019ann\u00e9e \u00c9CHO recule depuis 1968.", "Choisissez la vitesse et le format, puis touchez ENREGISTRER. La vid\u00e9o est cr\u00e9\u00e9e sur votre appareil\u00a0; ensuite, vous pouvez la partager ou la t\u00e9l\u00e9charger. Les couleurs montrent l\u2019\u00e9tat actuel de chaque pompe."], witness:"T\u00c9MOIN", readStory:"VERS LE R\u00c9CIT", readMore:"LIRE LA SUITE", newsTag:"NOUVEAU SUR QUELLCODE", newsRead:"LIRE LE R\u00c9CIT", newsLater:"PLUS TARD", locHelpShort:"AIDE", locStuck:"PAS DE DEMANDE DE POSITION\u00a0? TOUCHEZ ICI", locHelpTitle:"ACTIVER LA LOCALISATION", locRetry:"RELOCALISER", openChrome:"OUVRIR DANS CHROME", locateLbl:"Ma position", wvNote:"Quellcode s\u2019ouvre en ce moment dans la vue int\u00e9gr\u00e9e d\u2019une autre appli, par exemple une appli de messagerie. L\u00e0, le t\u00e9l\u00e9phone ne demande souvent jamais la position. Ouvrez Quellcode directement dans Chrome.", locHelpBody:["Quellcode n\u2019utilise votre position que pour une seule v\u00e9rification\u00a0: \u00eates-vous \u00e0 30\u00a0m\u00e8tres au plus de la pompe\u00a0? La position reste sur votre t\u00e9l\u00e9phone et n\u2019est jamais envoy\u00e9e.", "Android avec Chrome\u00a0: dans la barre d\u2019adresse, touchez l\u2019ic\u00f4ne \u00e0 gauche de l\u2019adresse, puis \u00ab\u00a0Autorisations\u00a0\u00bb, et r\u00e9glez \u00ab\u00a0Position\u00a0\u00bb sur \u00ab\u00a0Autoriser\u00a0\u00bb.", "Android en g\u00e9n\u00e9ral\u00a0: activez la localisation dans les r\u00e9glages rapides. Dans Param\u00e8tres > Applications > Chrome > Autorisations > Position, choisissez \u00ab\u00a0Autoriser seulement si l\u2019appli est en cours d\u2019utilisation\u00a0\u00bb.", "iPhone\u00a0: R\u00e9glages > Confidentialit\u00e9 et s\u00e9curit\u00e9 > Service de localisation > Sites web Safari > \u00ab\u00a0Lorsque l\u2019app est active\u00a0\u00bb.", "Ouvert depuis une appli de messagerie ou un r\u00e9seau social\u00a0? Ouvrez la page directement dans le navigateur. Puis touchez RELOCALISER."],
         photoRule:'R\u00e8gle : la premi\u00e8re photo d\u2019une station doit montrer son num\u00e9ro de fontaine, pour savoir de quelle pompe il s\u2019agit. La mod\u00e9ration y veille.',
         sentTitle:'TRANSMISSION RE\u00c7UE', failTitle:'\u00c9CHEC DE LA TRANSMISSION',
         gallery:'GALERIE', toStation:'VERS LA STATION', glEmpty:'Pas encore de photos publi\u00e9es.',
@@ -799,7 +836,7 @@ const I18N = {
         kzTitle:'\u041a\u0418\u0426-\u0420\u0410\u0414\u0418\u041e', kzReceived:'\u041f\u0420\u0418\u041d\u042f\u0422\u041e', kzNet:'\u0412\u0421\u042f \u0421\u0415\u0422\u042c',
         kzEmpty:'\u0420\u0430\u0439\u043e\u043d\u044b \u0435\u0449\u0451 \u043d\u0435 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u044b.',
         inRange:'\u0412 \u0417\u041e\u041d\u0415 \u041f\u0420\u0418\u0401\u041c\u0410', outRange:'\u0412\u041d\u0415 \u0417\u041e\u041d\u042b \u041f\u0420\u0418\u0401\u041c\u0410',
-        needLoc:'\u0412\u041a\u041b\u042e\u0427\u0418\u0422\u0415 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u042e, \u0427\u0422\u041e\u0411\u042b \u0423\u0427\u0410\u0421\u0422\u0412\u041e\u0412\u0410\u0422\u042c', locWait:'\u041f\u041e\u0418\u0421\u041a \u0421\u0418\u0413\u041d\u0410\u041b\u0410...', witness:"\u0421\u0412\u0418\u0414\u0415\u0422\u0415\u041b\u042c", readStory:"\u041a \u0420\u0410\u0421\u0421\u041a\u0410\u0417\u0423", readMore:"\u0427\u0418\u0422\u0410\u0422\u042c \u0414\u0410\u041b\u042c\u0428\u0415", newsTag:"\u041d\u041e\u0412\u041e\u0415 \u0412 QUELLCODE", newsRead:"\u0427\u0418\u0422\u0410\u0422\u042c \u0420\u0410\u0421\u0421\u041a\u0410\u0417", newsLater:"\u041f\u041e\u0417\u0416\u0415", locHelpShort:"\u041f\u041e\u041c\u041e\u0429\u042c", locStuck:"\u041d\u0415\u0422 \u0417\u0410\u041f\u0420\u041e\u0421\u0410 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u0418? \u041d\u0410\u0416\u041c\u0418\u0422\u0415 \u0417\u0414\u0415\u0421\u042c", locHelpTitle:"\u0412\u041a\u041b\u042e\u0427\u0418\u0422\u0415 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u042e", locRetry:"\u041e\u041f\u0420\u0415\u0414\u0415\u041b\u0418\u0422\u042c \u0421\u041d\u041e\u0412\u0410", openChrome:"\u041e\u0422\u041a\u0420\u042b\u0422\u042c \u0412 CHROME", locateLbl:"\u041c\u043e\u0451 \u043c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435", wvNote:"Quellcode \u0441\u0435\u0439\u0447\u0430\u0441 \u043e\u0442\u043a\u0440\u044b\u0442 \u0432\u043d\u0443\u0442\u0440\u0438 \u0434\u0440\u0443\u0433\u043e\u0433\u043e \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f, \u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440 \u043f\u043e\u0447\u0442\u043e\u0432\u043e\u0433\u043e. \u0422\u0430\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0447\u0430\u0441\u0442\u043e \u0432\u043e\u043e\u0431\u0449\u0435 \u043d\u0435 \u0441\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442 \u043e \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u0438. \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 Quellcode \u043f\u0440\u044f\u043c\u043e \u0432 Chrome.", locHelpBody:["Quellcode \u043d\u0443\u0436\u043d\u0430 \u0432\u0430\u0448\u0430 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u043e\u0434\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438: \u0432\u044b \u0441\u0442\u043e\u0438\u0442\u0435 \u043d\u0435 \u0434\u0430\u043b\u044c\u0448\u0435 30 \u043c\u0435\u0442\u0440\u043e\u0432 \u043e\u0442 \u043a\u043e\u043b\u043e\u043d\u043a\u0438? \u0413\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044f \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f \u043d\u0430 \u0432\u0430\u0448\u0435\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0435 \u0438 \u043d\u0438\u043a\u0443\u0434\u0430 \u043d\u0435 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.", "Android \u0438 Chrome: \u0432 \u0430\u0434\u0440\u0435\u0441\u043d\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0435 \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u043d\u0430 \u0437\u043d\u0430\u0447\u043e\u043a \u0441\u043b\u0435\u0432\u0430 \u043e\u0442 \u0430\u0434\u0440\u0435\u0441\u0430, \u0437\u0430\u0442\u0435\u043c \u00ab\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f\u00bb, \u0438 \u0434\u043b\u044f \u00ab\u041c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u044f\u00bb \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u00ab\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u044c\u00bb.", "Android \u0432 \u0446\u0435\u043b\u043e\u043c: \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044e \u0432 \u0431\u044b\u0441\u0442\u0440\u044b\u0445 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445. \u0412 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 > \u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f > Chrome > \u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f > \u041c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u00ab\u0422\u043e\u043b\u044c\u043a\u043e \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f\u00bb.", "iPhone: \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 > \u041a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0438 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c > \u0421\u043b\u0443\u0436\u0431\u044b \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u0438 > \u0412\u0435\u0431-\u0441\u0430\u0439\u0442\u044b Safari > \u00ab\u041f\u0440\u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0438\u00bb.", "\u041e\u0442\u043a\u0440\u044b\u043b\u0438 \u0438\u0437 \u043f\u043e\u0447\u0442\u044b \u0438\u043b\u0438 \u0441\u043e\u0446\u0441\u0435\u0442\u0438? \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0443 \u043f\u0440\u044f\u043c\u043e \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435. \u0417\u0430\u0442\u0435\u043c \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u041e\u041f\u0420\u0415\u0414\u0415\u041b\u0418\u0422\u042c \u0421\u041d\u041e\u0412\u0410\u00bb."],
+        needLoc:'\u0412\u041a\u041b\u042e\u0427\u0418\u0422\u0415 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u042e, \u0427\u0422\u041e\u0411\u042b \u0423\u0427\u0410\u0421\u0422\u0412\u041e\u0412\u0410\u0422\u042c', locWait:'\u041f\u041e\u0418\u0421\u041a \u0421\u0418\u0413\u041d\u0410\u041b\u0410...', tl:"\u0422\u0410\u0419\u041c\u041b\u0410\u041f\u0421", tlOpenLbl:"\u25b6 \u0422\u0410\u0419\u041c\u041b\u0410\u041f\u0421", tlPlay:"\u041f\u0423\u0421\u041a", tlPause:"\u041f\u0410\u0423\u0417\u0410", tlRestart:"\u0421 \u041d\u0410\u0427\u0410\u041b\u0410", tlSpeed:"\u041a\u041e\u041b\u041e\u041d\u041e\u041a/\u0421", tlRec:"\u0417\u0410\u041f\u0418\u0421\u0410\u0422\u042c", tlStop:"\u0421\u0422\u041e\u041f", tlShare:"\u041f\u041e\u0414\u0415\u041b\u0418\u0422\u042c\u0421\u042f", tlSave:"\u0421\u041e\u0425\u0420\u0410\u041d\u0418\u0422\u042c", tlChecked:"\u041f\u0420\u041e\u0412\u0415\u0420\u0415\u041d\u041e", tlSaved:"\u0412\u0438\u0434\u0435\u043e \u0433\u043e\u0442\u043e\u0432\u043e. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u041f\u041e\u0414\u0415\u041b\u0418\u0422\u042c\u0421\u042f\u00bb \u0438\u043b\u0438 \u00ab\u0421\u041e\u0425\u0420\u0410\u041d\u0418\u0422\u042c\u00bb.", tlNoRec:"\u042d\u0442\u043e\u0442 \u0431\u0440\u0430\u0443\u0437\u0435\u0440 \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u043f\u0438\u0441\u0430\u0442\u044c \u0432\u0438\u0434\u0435\u043e \u0437\u0434\u0435\u0441\u044c. Chrome \u043d\u0430 Android \u0438\u043b\u0438 \u043d\u0430 \u043a\u043e\u043c\u043f\u044c\u044e\u0442\u0435\u0440\u0435 \u043c\u043e\u0436\u0435\u0442.", tlLoading:"\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438\u2026", tlReady:"\u041f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043d\u044b\u0445 \u043a\u043e\u043b\u043e\u043d\u043e\u043a: {n} \u00b7 \u0434\u043b\u0438\u043d\u0430 {d}", tlHead:"QUELLCODE \u00b7 \u0423\u041b\u0418\u0427\u041d\u042b\u0415 \u041a\u041e\u041b\u041e\u041d\u041a\u0418 \u0411\u0415\u0420\u041b\u0418\u041d\u0410", tlCredit:"\u041a\u043e\u043b\u043e\u043d\u043a\u0438 \u00a9 \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u0438 OpenStreetMap (ODbL) \u00b7 quellcode-berlin.netlify.app", tlTipTitle:"\u0422\u0410\u0419\u041c\u041b\u0410\u041f\u0421", tlTipBody:["\u0417\u0434\u0435\u0441\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044f \u043a\u0430\u0440\u0442\u044b \u0438\u0434\u0451\u0442 \u0432 \u0443\u0441\u043a\u043e\u0440\u0435\u043d\u043d\u043e\u043c \u0432\u0438\u0434\u0435: \u043a\u0430\u0436\u0434\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043d\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430 \u0432\u0441\u043f\u044b\u0445\u0438\u0432\u0430\u0435\u0442 \u043e\u0434\u0438\u043d \u0440\u0430\u0437, \u0432 \u0442\u043e\u043c \u043f\u043e\u0440\u044f\u0434\u043a\u0435, \u0432 \u043a\u0430\u043a\u043e\u043c \u0435\u0451 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u043b\u0438 \u0432\u043f\u0435\u0440\u0432\u044b\u0435, \u0430 \u0433\u043e\u0434 \u042d\u0425\u041e \u043e\u0442\u0441\u0447\u0438\u0442\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u043d\u0430\u0437\u0430\u0434 \u043e\u0442 1968.", "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0441\u043a\u043e\u0440\u043e\u0441\u0442\u044c \u0438 \u0444\u043e\u0440\u043c\u0430\u0442 \u0438 \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u0417\u0410\u041f\u0418\u0421\u0410\u0422\u042c\u00bb. \u0412\u0438\u0434\u0435\u043e \u0441\u043e\u0437\u0434\u0430\u0451\u0442\u0441\u044f \u043d\u0430 \u0432\u0430\u0448\u0435\u043c \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0435, \u043f\u043e\u0442\u043e\u043c \u0435\u0433\u043e \u043c\u043e\u0436\u043d\u043e \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0438\u043b\u0438 \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c. \u0426\u0432\u0435\u0442\u0430 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u044e\u0442, \u0432 \u043a\u0430\u043a\u043e\u043c \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0438 \u043a\u0430\u0436\u0434\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f."], witness:"\u0421\u0412\u0418\u0414\u0415\u0422\u0415\u041b\u042c", readStory:"\u041a \u0420\u0410\u0421\u0421\u041a\u0410\u0417\u0423", readMore:"\u0427\u0418\u0422\u0410\u0422\u042c \u0414\u0410\u041b\u042c\u0428\u0415", newsTag:"\u041d\u041e\u0412\u041e\u0415 \u0412 QUELLCODE", newsRead:"\u0427\u0418\u0422\u0410\u0422\u042c \u0420\u0410\u0421\u0421\u041a\u0410\u0417", newsLater:"\u041f\u041e\u0417\u0416\u0415", locHelpShort:"\u041f\u041e\u041c\u041e\u0429\u042c", locStuck:"\u041d\u0415\u0422 \u0417\u0410\u041f\u0420\u041e\u0421\u0410 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u0418? \u041d\u0410\u0416\u041c\u0418\u0422\u0415 \u0417\u0414\u0415\u0421\u042c", locHelpTitle:"\u0412\u041a\u041b\u042e\u0427\u0418\u0422\u0415 \u0413\u0415\u041e\u041b\u041e\u041a\u0410\u0426\u0418\u042e", locRetry:"\u041e\u041f\u0420\u0415\u0414\u0415\u041b\u0418\u0422\u042c \u0421\u041d\u041e\u0412\u0410", openChrome:"\u041e\u0422\u041a\u0420\u042b\u0422\u042c \u0412 CHROME", locateLbl:"\u041c\u043e\u0451 \u043c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435", wvNote:"Quellcode \u0441\u0435\u0439\u0447\u0430\u0441 \u043e\u0442\u043a\u0440\u044b\u0442 \u0432\u043d\u0443\u0442\u0440\u0438 \u0434\u0440\u0443\u0433\u043e\u0433\u043e \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f, \u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440 \u043f\u043e\u0447\u0442\u043e\u0432\u043e\u0433\u043e. \u0422\u0430\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d \u0447\u0430\u0441\u0442\u043e \u0432\u043e\u043e\u0431\u0449\u0435 \u043d\u0435 \u0441\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442 \u043e \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u0438. \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 Quellcode \u043f\u0440\u044f\u043c\u043e \u0432 Chrome.", locHelpBody:["Quellcode \u043d\u0443\u0436\u043d\u0430 \u0432\u0430\u0448\u0430 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u043e\u0434\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438: \u0432\u044b \u0441\u0442\u043e\u0438\u0442\u0435 \u043d\u0435 \u0434\u0430\u043b\u044c\u0448\u0435 30 \u043c\u0435\u0442\u0440\u043e\u0432 \u043e\u0442 \u043a\u043e\u043b\u043e\u043d\u043a\u0438? \u0413\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044f \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f \u043d\u0430 \u0432\u0430\u0448\u0435\u043c \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0435 \u0438 \u043d\u0438\u043a\u0443\u0434\u0430 \u043d\u0435 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.", "Android \u0438 Chrome: \u0432 \u0430\u0434\u0440\u0435\u0441\u043d\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0435 \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u043d\u0430 \u0437\u043d\u0430\u0447\u043e\u043a \u0441\u043b\u0435\u0432\u0430 \u043e\u0442 \u0430\u0434\u0440\u0435\u0441\u0430, \u0437\u0430\u0442\u0435\u043c \u00ab\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f\u00bb, \u0438 \u0434\u043b\u044f \u00ab\u041c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u044f\u00bb \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u00ab\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u044c\u00bb.", "Android \u0432 \u0446\u0435\u043b\u043e\u043c: \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044e \u0432 \u0431\u044b\u0441\u0442\u0440\u044b\u0445 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445. \u0412 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 > \u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f > Chrome > \u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f > \u041c\u0435\u0441\u0442\u043e\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0432\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u00ab\u0422\u043e\u043b\u044c\u043a\u043e \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f\u00bb.", "iPhone: \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 > \u041a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0438 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c > \u0421\u043b\u0443\u0436\u0431\u044b \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u0438 > \u0412\u0435\u0431-\u0441\u0430\u0439\u0442\u044b Safari > \u00ab\u041f\u0440\u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0438\u00bb.", "\u041e\u0442\u043a\u0440\u044b\u043b\u0438 \u0438\u0437 \u043f\u043e\u0447\u0442\u044b \u0438\u043b\u0438 \u0441\u043e\u0446\u0441\u0435\u0442\u0438? \u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0443 \u043f\u0440\u044f\u043c\u043e \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435. \u0417\u0430\u0442\u0435\u043c \u043d\u0430\u0436\u043c\u0438\u0442\u0435 \u00ab\u041e\u041f\u0420\u0415\u0414\u0415\u041b\u0418\u0422\u042c \u0421\u041d\u041e\u0412\u0410\u00bb."],
         photoRule:'\u041f\u0440\u0430\u0432\u0438\u043b\u043e: \u043f\u0435\u0440\u0432\u043e\u0435 \u0444\u043e\u0442\u043e \u0441\u0442\u0430\u043d\u0446\u0438\u0438 \u0434\u043e\u043b\u0436\u043d\u043e \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0435\u0451 \u043d\u043e\u043c\u0435\u0440, \u0447\u0442\u043e\u0431\u044b \u0431\u044b\u043b\u043e \u044f\u0441\u043d\u043e, \u043e \u043a\u0430\u043a\u043e\u0439 \u043a\u043e\u043b\u043e\u043d\u043a\u0435 \u0440\u0435\u0447\u044c. \u041c\u043e\u0434\u0435\u0440\u0430\u0446\u0438\u044f \u0441\u043b\u0435\u0434\u0438\u0442 \u0437\u0430 \u044d\u0442\u0438\u043c.',
         sentTitle:'\u041f\u0415\u0420\u0415\u0414\u0410\u0427\u0410 \u041f\u0420\u0418\u041d\u042f\u0422\u0410', failTitle:'\u041f\u0415\u0420\u0415\u0414\u0410\u0427\u0410 \u041d\u0415 \u041f\u0420\u041e\u0428\u041b\u0410',
         gallery:'\u0413\u0410\u041b\u0415\u0420\u0415\u042f', toStation:'\u041a \u0421\u0422\u0410\u041d\u0426\u0418\u0418', glEmpty:'\u041e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u044b\u0445 \u0444\u043e\u0442\u043e \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.',
@@ -863,7 +900,7 @@ const I18N = {
         kzTitle:'MAHALLE RADYOSU', kzReceived:'ALINDI', kzNet:'T\u00dcM A\u011e',
         kzEmpty:'Hen\u00fcz mahalle atamas\u0131 yok.',
         inRange:'MENZ\u0130LDE', outRange:'MENZ\u0130L DI\u015eINDA',
-        needLoc:'KATKI \u0130\u00c7\u0130N KONUMU A\u00c7IN', locWait:'S\u0130NYAL ARANIYOR...', witness:"TANIK", readStory:"H\u0130KAYEYE G\u0130T", readMore:"DEVAMINI OKU", newsTag:"QUELLCODE\u2019DA YEN\u0130", newsRead:"H\u0130KAYEY\u0130 OKU", newsLater:"SONRA", locHelpShort:"YARDIM", locStuck:"KONUM SORULMADI MI? BURAYA DOKUNUN", locHelpTitle:"KONUMU A\u00c7IN", locRetry:"YEN\u0130DEN BUL", openChrome:"CHROME\u2019DA A\u00c7", locateLbl:"Konumum", wvNote:"Quellcode \u015fu anda ba\u015fka bir uygulaman\u0131n, \u00f6rne\u011fin bir e-posta uygulamas\u0131n\u0131n i\u00e7inde a\u00e7\u0131k. Orada telefon \u00e7o\u011fu zaman konum sormaz. Quellcode\u2019u do\u011frudan Chrome\u2019da a\u00e7\u0131n.", locHelpBody:["Quellcode konumunuzu yaln\u0131zca tek bir kontrol i\u00e7in kullan\u0131r: Tulumbaya en fazla 30 metre uzakl\u0131kta m\u0131s\u0131n\u0131z? Konumunuz telefonunuzda kal\u0131r ve hi\u00e7bir yere g\u00f6nderilmez.", "Android ve Chrome: Adres \u00e7ubu\u011funda adresin solundaki simgeye, sonra \u201c\u0130zinler\u201da dokunun ve \u201cKonum\u201du \u201c\u0130zin ver\u201d olarak ayarlay\u0131n.", "Android genel: H\u0131zl\u0131 ayarlardan konumu a\u00e7\u0131n. Ayarlar > Uygulamalar > Chrome > \u0130zinler > Konum alt\u0131nda \u201cYaln\u0131zca uygulama kullan\u0131l\u0131rken izin ver\u201di se\u00e7in.", "iPhone: Ayarlar > Gizlilik ve G\u00fcvenlik > Konum Servisleri > Safari Web Siteleri > \u201cUygulamay\u0131 Kullan\u0131rken\u201d.", "Bir e-posta ya da sosyal medya uygulamas\u0131ndan m\u0131 a\u00e7t\u0131n\u0131z? Sayfay\u0131 do\u011frudan taray\u0131c\u0131da a\u00e7\u0131n. Sonra YEN\u0130DEN BUL\u2019a dokunun."],
+        needLoc:'KATKI \u0130\u00c7\u0130N KONUMU A\u00c7IN', locWait:'S\u0130NYAL ARANIYOR...', tl:"HIZLANDIRILMI\u015e", tlOpenLbl:"\u25b6 HIZLANDIRILMI\u015e", tlPlay:"OYNAT", tlPause:"DURAKLAT", tlRestart:"BA\u015eTAN", tlSpeed:"TULUMBA/SN", tlRec:"KAYDET", tlStop:"DURDUR", tlShare:"PAYLA\u015e", tlSave:"\u0130ND\u0130R", tlChecked:"KONTROL ED\u0130LD\u0130", tlSaved:"Video haz\u0131r. PAYLA\u015e ya da \u0130ND\u0130R\u2019e dokunun.", tlNoRec:"Bu taray\u0131c\u0131 burada video kaydedemez. Android\u2019de ya da bilgisayarda Chrome kaydedebilir.", tlLoading:"Kontroller y\u00fckleniyor\u2026", tlReady:"{n} kontrol edilmi\u015f tulumba \u00b7 s\u00fcre {d}", tlHead:"QUELLCODE \u00b7 BERL\u0130N SOKAK TULUMBALARI", tlCredit:"Tulumbalar \u00a9 OpenStreetMap katk\u0131c\u0131lar\u0131 (ODbL) \u00b7 quellcode-berlin.netlify.app", tlTipTitle:"HIZLANDIRILMI\u015e", tlTipBody:["Burada haritan\u0131n hik\u00e2yesi h\u0131zland\u0131r\u0131lm\u0131\u015f olarak oynar: Kontrol edilen her tulumba, ilk kontrol edildi\u011fi s\u0131rayla bir kez parlar; bu s\u0131rada YANKI y\u0131l\u0131 1968\u2019den geriye sayar.", "H\u0131z\u0131 ve format\u0131 se\u00e7in, sonra KAYDET\u2019e dokunun. Video cihaz\u0131n\u0131zda olu\u015fur; ard\u0131ndan payla\u015fabilir ya da indirebilirsiniz. Renkler her tulumban\u0131n bug\u00fcnk\u00fc durumunu g\u00f6sterir."], witness:"TANIK", readStory:"H\u0130KAYEYE G\u0130T", readMore:"DEVAMINI OKU", newsTag:"QUELLCODE\u2019DA YEN\u0130", newsRead:"H\u0130KAYEY\u0130 OKU", newsLater:"SONRA", locHelpShort:"YARDIM", locStuck:"KONUM SORULMADI MI? BURAYA DOKUNUN", locHelpTitle:"KONUMU A\u00c7IN", locRetry:"YEN\u0130DEN BUL", openChrome:"CHROME\u2019DA A\u00c7", locateLbl:"Konumum", wvNote:"Quellcode \u015fu anda ba\u015fka bir uygulaman\u0131n, \u00f6rne\u011fin bir e-posta uygulamas\u0131n\u0131n i\u00e7inde a\u00e7\u0131k. Orada telefon \u00e7o\u011fu zaman konum sormaz. Quellcode\u2019u do\u011frudan Chrome\u2019da a\u00e7\u0131n.", locHelpBody:["Quellcode konumunuzu yaln\u0131zca tek bir kontrol i\u00e7in kullan\u0131r: Tulumbaya en fazla 30 metre uzakl\u0131kta m\u0131s\u0131n\u0131z? Konumunuz telefonunuzda kal\u0131r ve hi\u00e7bir yere g\u00f6nderilmez.", "Android ve Chrome: Adres \u00e7ubu\u011funda adresin solundaki simgeye, sonra \u201c\u0130zinler\u201da dokunun ve \u201cKonum\u201du \u201c\u0130zin ver\u201d olarak ayarlay\u0131n.", "Android genel: H\u0131zl\u0131 ayarlardan konumu a\u00e7\u0131n. Ayarlar > Uygulamalar > Chrome > \u0130zinler > Konum alt\u0131nda \u201cYaln\u0131zca uygulama kullan\u0131l\u0131rken izin ver\u201di se\u00e7in.", "iPhone: Ayarlar > Gizlilik ve G\u00fcvenlik > Konum Servisleri > Safari Web Siteleri > \u201cUygulamay\u0131 Kullan\u0131rken\u201d.", "Bir e-posta ya da sosyal medya uygulamas\u0131ndan m\u0131 a\u00e7t\u0131n\u0131z? Sayfay\u0131 do\u011frudan taray\u0131c\u0131da a\u00e7\u0131n. Sonra YEN\u0130DEN BUL\u2019a dokunun."],
         photoRule:'Kural: bir istasyonun ilk foto\u011fraf\u0131 kuyu numaras\u0131n\u0131 g\u00f6stermelidir, b\u00f6ylece hangi tulumba oldu\u011fu bellidir. Denetim buna dikkat eder.',
         sentTitle:'AKTARIM ALINDI', failTitle:'AKTARIM BA\u015eARISIZ',
         gallery:'GALER\u0130', toStation:'\u0130STASYONA G\u0130T', glEmpty:'Hen\u00fcz yay\u0131mlanm\u0131\u015f foto\u011fraf yok.',
@@ -926,6 +963,7 @@ function renderLang(){
   if (current){ fillSheet(current); updateRange(); }
   if (typeof inModal !== 'undefined'){ fillIntro(); renderHelpList(); }
   if (window.__ecRender) window.__ecRender();
+  if (window.__tlRender) window.__tlRender();
   if (typeof pgOn !== 'undefined' && pgOn) updatePeilung();
   if (typeof nwModal !== 'undefined' && !nwModal.hidden) fillNews();
   renderCounts();
@@ -1636,6 +1674,209 @@ document.getElementById('ecBtn').addEventListener('click', async () => {
 });
 document.getElementById('ecClose').addEventListener('click', () => { ecModal.hidden = true; });
 
+// ---------- ZEITRAFFER: one flash per checked pump, in the order of first checks ----------
+const tlModal = document.getElementById('tlModal');
+const tlCv = document.getElementById('tlCanvas'), tlCx = tlCv.getContext('2d');
+const TL_FMT = { '9:16':[1080,1920], '16:9':[1920,1080], '1:1':[1440,1440] };
+const TL_INTRO = 1.6, TL_OUTRO = 5, TL_FLASH = 1.1;
+const TL_LOC = { de:'de-DE', en:'en-GB', fr:'fr-FR', ru:'ru-RU', tr:'tr-TR' };
+let tlSeq = [], tlFmt = '9:16', tlPps = 6, tlT = 0, tlPlaying = false, tlLast = 0;
+let tlRec = null, tlChunks = [], tlBlob = null, tlProj = null, tlPts = [], tlLoaded = false;
+
+async function tlLoad(){
+  const firsts = new Map();
+  for (let from = 0; ; from += 1000){
+    const { data, error } = await supabase.from('status_reports')
+      .select('pump_id,created_at').order('created_at').order('id').range(from, from + 999);
+    if (error) throw error;
+    for (const r of data) if (!firsts.has(r.pump_id) && pumps.has(r.pump_id)) firsts.set(r.pump_id, new Date(r.created_at));
+    if (data.length < 1000) break;
+  }
+  tlSeq = [...firsts].map(([id, at]) => ({ p: pumps.get(id), at }));
+  tlLoaded = true;
+}
+function tlFit(){
+  const [W, H] = TL_FMT[tlFmt]; tlCv.width = W; tlCv.height = H;
+  const list = [...pumps.values()];
+  let a = 90, b = -90, c = 180, d = -180;
+  for (const p of list){ a = Math.min(a, p.lat); b = Math.max(b, p.lat); c = Math.min(c, p.lng); d = Math.max(d, p.lng); }
+  const k = Math.cos(((a + b) / 2) * Math.PI / 180);
+  const wide = tlFmt === '16:9';
+  const top = wide ? 0.06 : 0.17, bottom = wide ? 0.08 : 0.17, left = wide ? 0.30 : 0.05, right = 0.04;
+  const aw = W * (1 - left - right), ah = H * (1 - top - bottom);
+  const sc = Math.min(aw / ((d - c) * k), ah / (b - a));
+  const ox = W * left + (aw - (d - c) * k * sc) / 2, oy = H * top + (ah - (b - a) * sc) / 2;
+  tlProj = (lat, lng) => [ox + (lng - c) * k * sc, oy + (b - lat) * sc];
+  tlPts = list.map(p => { const [x, y] = tlProj(p.lat, p.lng); return { id:p.id, x, y }; });
+  for (const e of tlSeq) [e.x, e.y] = tlProj(e.p.lat, e.p.lng);
+}
+const tlTotal = () => TL_INTRO + tlSeq.length / tlPps + TL_OUTRO;
+const tlDur = (s) => Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0');
+function tlDraw(){
+  const W = tlCv.width, H = tlCv.height, u = Math.min(W, H) / 1080, cx = tlCx, wide = tlFmt === '16:9';
+  cx.fillStyle = '#05090E'; cx.fillRect(0, 0, W, H);
+  const n = tlT < TL_INTRO ? 0 : Math.min(tlSeq.length, Math.floor((tlT - TL_INTRO) * tlPps) + 1);
+  const done = new Set(); for (let i = 0; i < n; i++) done.add(tlSeq[i].p.id);
+  cx.fillStyle = '#1E3646';
+  for (const q of tlPts) if (!done.has(q.id)){ cx.beginPath(); cx.arc(q.x, q.y, 2.1 * u, 0, 7); cx.fill(); }
+  for (let i = 0; i < n; i++){
+    const e = tlSeq[i]; cx.fillStyle = COLORS[e.p.current_status] || COLORS.working;
+    cx.beginPath(); cx.arc(e.x, e.y, 3.4 * u, 0, 7); cx.fill();
+  }
+  for (let i = Math.max(0, n - Math.ceil(TL_FLASH * tlPps) - 1); i < n; i++){
+    const age = tlT - (TL_INTRO + i / tlPps); if (age < 0 || age > TL_FLASH) continue;
+    const q = age / TL_FLASH, e = tlSeq[i], col = COLORS[e.p.current_status] || COLORS.working;
+    cx.globalAlpha = 1 - q; cx.strokeStyle = col; cx.lineWidth = 2.5 * u;
+    cx.beginPath(); cx.arc(e.x, e.y, (4 + 40 * Math.sqrt(q)) * u, 0, 7); cx.stroke();
+    cx.globalAlpha = (1 - q) * 0.9; cx.fillStyle = '#E8F2F4';
+    cx.beginPath(); cx.arc(e.x, e.y, (6 - 3 * q) * u, 0, 7); cx.fill();
+    cx.globalAlpha = 1;
+  }
+  const cur = n ? tlSeq[n - 1] : null, L = (wide ? 90 : 70) * u;
+  let y = (wide ? 140 : 120) * u;
+  cx.textAlign = 'left'; cx.textBaseline = 'alphabetic';
+  cx.fillStyle = '#7A93A5'; cx.font = `500 ${26 * u}px 'IBM Plex Mono', monospace`;
+  cx.fillText(t('tlHead'), L, y);
+  y += (wide ? 190 : 170) * u;
+  cx.fillStyle = '#E8F2F4'; cx.font = `700 ${170 * u}px 'Space Grotesk', sans-serif`;
+  cx.fillText(String(ECHO_START - n), L - 6 * u, y);
+  y += 54 * u;
+  cx.fillStyle = '#57E6D2'; cx.font = `500 ${30 * u}px 'IBM Plex Mono', monospace`;
+  cx.fillText(`${n} / ${pumps.size} ${t('tlChecked')}`, L, y);
+  if (cur){
+    y += 48 * u; cx.fillStyle = '#7A93A5'; cx.font = `500 ${28 * u}px 'IBM Plex Mono', monospace`;
+    cx.fillText(cur.at.toLocaleDateString(TL_LOC[lang] || 'de-DE', { timeZone:'Europe/Berlin', day:'2-digit', month:'2-digit', year:'numeric' }), L, y);
+    y += 44 * u; cx.fillStyle = '#E8F2F4';
+    cx.fillText((cur.p.district || '').toUpperCase(), L, y);
+  }
+  const ly = wide ? H - 170 * u : H - 200 * u;
+  ['working', 'broken', 'missing'].forEach((k, j) => {
+    cx.fillStyle = COLORS[k]; cx.beginPath(); cx.arc(L + 8 * u, ly + j * 38 * u - 8 * u, 7 * u, 0, 7); cx.fill();
+    cx.fillStyle = '#7A93A5'; cx.font = `500 ${24 * u}px 'IBM Plex Mono', monospace`; cx.fillText(t(k), L + 30 * u, ly + j * 38 * u);
+  });
+  cx.fillStyle = '#41586A'; cx.font = `500 ${18 * u}px 'IBM Plex Mono', monospace`;
+  cx.textAlign = wide ? 'right' : 'left';
+  cx.fillText(t('tlCredit'), wide ? W - 40 * u : L, H - 40 * u);
+}
+function tlUi(){
+  document.getElementById('tlPlay').textContent = tlPlaying ? t('tlPause') : t('tlPlay');
+  document.getElementById('tlRestart').textContent = t('tlRestart');
+  document.getElementById('tlSpeedLbl').textContent = tlPps + ' ' + t('tlSpeed');
+  document.getElementById('tlFmt').textContent = tlFmt;
+  const rec = document.getElementById('tlRec');
+  rec.textContent = tlRec ? t('tlStop') : t('tlRec'); rec.classList.toggle('on', !!tlRec);
+  const share = document.getElementById('tlShare');
+  share.hidden = !tlBlob; share.textContent = tlCanShare() ? t('tlShare') : t('tlSave');
+  for (const id of ['tlFmt', 'tlSpeed', 'tlRestart']) document.getElementById(id).disabled = !!tlRec;
+  document.getElementById('tlPlay').disabled = !!tlRec;
+}
+function tlInfo(key){
+  const el = document.getElementById('tlInfo');
+  el.textContent = key === 'ready' ? t('tlReady').replace('{n}', tlSeq.length).replace('{d}', tlDur(tlTotal())) : t(key);
+}
+function tlFrame(now){
+  if (!tlPlaying) return;
+  tlT += Math.min(0.1, (now - tlLast) / 1000); tlLast = now;
+  if (tlT >= tlTotal()){
+    tlT = tlTotal(); tlPlaying = false; tlDraw(); tlUi();
+    if (tlRec) setTimeout(() => tlRec && tlRec.stop(), 300);
+    return;
+  }
+  tlDraw(); requestAnimationFrame(tlFrame);
+}
+function tlPlay(on = !tlPlaying){
+  if (!tlSeq.length) return;
+  if (on && tlT >= tlTotal()) tlT = 0;
+  tlPlaying = on; tlUi();
+  if (on){ tlLast = performance.now(); requestAnimationFrame(tlFrame); }
+}
+function tlRestart(){ if (tlRec) return; tlT = 0; tlDraw(); }
+function tlSetSpeed(v){
+  if (tlRec) return;
+  tlPps = Math.max(1, Math.min(30, Math.round(v)));
+  document.getElementById('tlSpeed').value = tlPps;
+  tlUi(); if (tlSeq.length) tlInfo('ready');
+}
+function tlNextFmt(){
+  if (tlRec) return;
+  const k = Object.keys(TL_FMT); tlFmt = k[(k.indexOf(tlFmt) + 1) % k.length];
+  tlFit(); tlDraw(); tlUi();
+}
+const tlType = () => ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+  .find(x => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(x));
+function tlFileName(){
+  const ext = tlBlob && tlBlob.type.startsWith('video/mp4') ? 'mp4' : 'webm';
+  return `quellcode-zeitraffer-${tlSeq.length}-${tlFmt.replace(':', 'x')}.${ext}`;
+}
+function tlCanShare(){
+  if (!tlBlob || !navigator.canShare) return false;
+  try { return navigator.canShare({ files:[new File([tlBlob], tlFileName(), { type:tlBlob.type })] }); } catch (e){ return false; }
+}
+function tlRecord(){
+  if (tlRec){ tlRec.stop(); return; }
+  if (!tlSeq.length) return;
+  const type = tlType();
+  if (!type || !tlCv.captureStream){ tlInfo('tlNoRec'); return; }
+  tlChunks = []; tlBlob = null;
+  tlRec = new MediaRecorder(tlCv.captureStream(30), { mimeType:type, videoBitsPerSecond:12e6 });
+  tlRec.ondataavailable = (e) => { if (e.data && e.data.size) tlChunks.push(e.data); };
+  tlRec.onstop = () => {
+    tlBlob = new Blob(tlChunks, { type }); tlRec = null; tlPlaying = false;
+    tlUi(); tlInfo('tlSaved');
+  };
+  tlT = 0; tlDraw(); tlRec.start(1000); tlUi();
+  tlPlay(true);
+}
+async function tlShareOrSave(){
+  if (!tlBlob) return;
+  const file = new File([tlBlob], tlFileName(), { type:tlBlob.type });
+  if (tlCanShare()){
+    try { await navigator.share({ files:[file], title:'Quellcode' }); return; }
+    catch (e){ if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(tlBlob); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+function tlClose(){
+  if (tlRec){ tlRec.onstop = null; tlRec.stop(); tlRec = null; }
+  tlPlaying = false; tlModal.hidden = true;
+}
+document.getElementById('tlOpen').addEventListener('click', async () => {
+  tlModal.hidden = false;
+  if (!tlRec) tlFmt = innerWidth > innerHeight ? '16:9' : '9:16';
+  tlBlob = null; tlT = 0; tlUi(); tlInfo('tlLoading');
+  showTip('qc-tip-timelapse', 'tlTipTitle', 'tlTipBody');
+  try {
+    await tlLoad(); tlFit(); tlDraw(); tlInfo('ready');
+  } catch (e){
+    console.warn('time-lapse', e); document.getElementById('tlInfo').textContent = String(e.message || e);
+  }
+});
+document.getElementById('tlClose').addEventListener('click', tlClose);
+document.getElementById('tlPlay').addEventListener('click', () => tlPlay());
+document.getElementById('tlRestart').addEventListener('click', tlRestart);
+document.getElementById('tlSpeed').addEventListener('input', (e) => tlSetSpeed(+e.target.value));
+document.getElementById('tlFmt').addEventListener('click', tlNextFmt);
+document.getElementById('tlRec').addEventListener('click', tlRecord);
+document.getElementById('tlShare').addEventListener('click', tlShareOrSave);
+addEventListener('keydown', (e) => {
+  if (tlModal.hidden || !inModal.hidden) return;
+  const tag = e.target && e.target.tagName;
+  if ((tag === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) || (tag === 'INPUT' && e.key.startsWith('Arrow'))) return;
+  const k = e.key.toLowerCase();
+  if (k === ' '){ e.preventDefault(); if (!tlRec) tlPlay(); }
+  else if (k === 'r') tlRestart();
+  else if (k === 'arrowup' || k === 'arrowright'){ e.preventDefault(); tlSetSpeed(tlPps + 1); }
+  else if (k === 'arrowdown' || k === 'arrowleft'){ e.preventDefault(); tlSetSpeed(tlPps - 1); }
+  else if (k === 'f') tlNextFmt();
+  else if (k === 'enter') tlRecord();
+  else if (k === 'escape') tlClose();
+});
+window.__tlRender = () => { if (!tlModal.hidden){ tlUi(); if (tlLoaded){ tlDraw(); tlInfo(tlBlob ? 'tlSaved' : 'ready'); } } };
+
+
 // the popup for whoever opens a new year
 const ecPop = document.getElementById('ecPop');
 let ecPopYear = null;
@@ -2216,6 +2457,7 @@ const GUIDES = [
   { flag:'qc-tip-kieze',    label:'kzTitle',    title:'kzTipTitle', body:'kzTipBody' },
   { flag:'qc-tip-journal',  label:'journal',    title:'jnTipTitle', body:'jnTipBody' },
   { flag:'qc-tip-echo',     label:'echo',       title:'ecTipTitle', body:'ecTipBody' },
+  { flag:'qc-tip-timelapse', label:'tl',        title:'tlTipTitle', body:'tlTipBody' },
   { flag:'qc-tip-gallery',  label:'gallery',    title:'glTipTitle', body:'glTipBody' },
   { flag:'qc-tip-peilung',  label:'pgTitle',    title:'pgTipTitle', body:'pgTipBody' },
   { flag:'qc-tip-fountain', label:'fountains',  title:'fnTipTitle', body:'fnTipBody' },
