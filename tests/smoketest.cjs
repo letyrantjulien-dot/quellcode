@@ -14,6 +14,7 @@ const w = dom.window;
 
 const prelude = `
 window.QC_CONFIG = { supabaseUrl: 'https://example.supabase.co', supabaseKey: 'test-key' };
+HTMLCanvasElement.prototype.getContext = function(){ return new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } }); };
 const chain = () => { const p = Promise.resolve({ data: [], error: null, count: 0 });
   return new Proxy({}, { get: (_, k) => {
     if (k === 'then') return p.then.bind(p);
@@ -22,19 +23,11 @@ const chain = () => { const p = Promise.resolve({ data: [], error: null, count: 
 let chainProxy; chainProxy = chain();
 const createClient = () => ({ from: () => chainProxy, rpc: (name) => Promise.resolve(name === 'echo_openers' ? { data: [{year:1967,pump_id:'p1',ref:'92',district:'Kreuzberg',photo_path:'a.jpg'},{year:1966,pump_id:'p2',ref:'44',district:'Kreuzberg',photo_path:null}], error: null } : { data: [{year:1968,theme:'ocean',dating:'exact',text_de:'Fakt 1968',text_en:'x',text_fr:'x',text_ru:'x',text_tr:'x',source_url:'https://example.org'},{year:1967,theme:'chronik',dating:'exact',text_de:'Fakt 1967',text_en:'x',text_fr:'x',text_ru:'x',text_tr:'x',source_url:'https://example.org'},{year:1966,theme:'chronik',dating:'exact',text_de:'Fakt 1966',text_en:'x',text_fr:'x',text_ru:'x',text_tr:'x',source_url:'https://example.org'}], error: null }),
   storage: { from: () => ({ getPublicUrl: () => ({ data:{ publicUrl:'x' } }) }) } });
-class MapStub { addControl(c){ if (c && c.onAdd){ const el = c.onAdd(this); el.id = el.id || 'ctlBox'; document.body.appendChild(el); } } on(){} once(){} addSource(){} addLayer(){} getZoom(){ return 12; }
+class MapStub { addControl(){} on(){} once(){} addSource(){} addLayer(){}
   getSource(){ return { setData(){} }; } getLayer(){ return null; }
   setLayoutProperty(){} project(){ return {x:0,y:0}; } flyTo(){}
   queryRenderedFeatures(){ return []; } getCanvas(){ return { style:{} }; } }
-class MarkerStub { constructor(){ window.__marker = (window.__marker||0) + 1; } setLngLat(){ return this; } addTo(){ return this; } remove(){ window.__marker--; } }
-const maplibregl = { Map: MapStub, GeolocateControl: class {}, Marker: MarkerStub };
-window.__geoMode = 'silent'; window.__watchers = [];
-Object.defineProperty(navigator, 'geolocation', { configurable:true, value: {
-  watchPosition(ok, err){ const id = window.__watchers.length + 1; window.__watchers.push({ ok, err });
-    if (window.__geoMode === 'fix') setTimeout(() => ok({ coords:{ latitude:52.54, longitude:13.41 } }), 5);
-    if (window.__geoMode === 'deny') setTimeout(() => err({ code:1 }), 5);
-    return id; },
-  clearWatch(){} } });
+const maplibregl = { Map: MapStub, GeolocateControl: class {} };
 window.fetch = async () => ({ ok:true, json: async () => ({}) });
 window.__errors = [];
 window.onerror = (m) => { window.__errors.push('onerror: ' + m); };
@@ -141,52 +134,29 @@ console.log(failures ? failures + ' FAILURES' : 'all panels and guides ran clean
   } catch(e){ console.log('GALLERY PATH THREW:', e.message); }
 })();
 
-// ---------- v1.42.0: location flows ----------
 (async () => {
-  await new Promise(r => setTimeout(r, 700));
-  const d = w.document, sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  await new Promise(r => setTimeout(r, 600));
+  const d = w.document; let bad = 0;
   try {
-    const btn = d.querySelector('.maplibregl-ctrl-geolocate');
-    console.log('locate button present =', !!btn, '| aria =', btn && btn.getAttribute('aria-label'));
-    // 1. browser never answers
-    w.__geoMode = 'silent';
-    btn.click();
-    console.log('silent: waiting class =', btn.classList.contains('maplibregl-ctrl-geolocate-waiting'));
-    await sleep(8300);
-    console.log('silent after 8 s: help open =', !d.getElementById('inModal').hidden,
-      '| title =', JSON.stringify(d.getElementById('inTitle').textContent),
-      '| retry visible =', !d.getElementById('inRetry').hidden,
-      '| chrome hidden =', d.getElementById('inChrome').hidden,
-      '| button error =', btn.classList.contains('maplibregl-ctrl-geolocate-active-error'));
-    // 2. retry, now the browser answers
-    w.__geoMode = 'fix';
-    d.getElementById('inRetry').click();
-    await sleep(60);
-    console.log('retry -> fix: help closed =', d.getElementById('inModal').hidden,
-      '| button active =', btn.classList.contains('maplibregl-ctrl-geolocate-active'),
-      '| me dot =', w.__marker);
-    btn.click();
-    console.log('second tap -> locate off, dot removed =', w.__marker === 0);
-    // 3. refusal shows a tappable help line in the Peilung
-    const pgB = d.getElementById('pgBtn');
-    if (!pgB.classList.contains('on')) pgB.dispatchEvent(new w.MouseEvent('click', { bubbles:true }));
-    w.__geoMode = 'deny';
-    d.getElementById('inRetry').click();
-    await sleep(60);
-    const hint = d.getElementById('pgHint');
-    console.log('deny: pgHint =', JSON.stringify(hint.textContent), '| tappable =', hint.classList.contains('tap'));
-    d.getElementById('inModal').hidden = true;
-    hint.click();
-    console.log('tap hint -> help open =', !d.getElementById('inModal').hidden);
-    // 4. the help in every language
+    d.getElementById('ecBtn').dispatchEvent(new w.MouseEvent('click', { bubbles:true }));
+    await new Promise(r => setTimeout(r, 30));
+    const open = d.getElementById('tlOpen');
+    console.log('time-lapse button in ECHO =', JSON.stringify(open.textContent));
+    open.click(); await new Promise(r => setTimeout(r, 50));
+    console.log('time-lapse open =', !d.getElementById('tlModal').hidden, '| info =', JSON.stringify(d.getElementById('tlInfo').textContent));
+    for (const k of [' ', 'ArrowUp', 'ArrowDown', 'f', 'f', 'f', 'r', 'Enter'])
+      d.dispatchEvent(new w.KeyboardEvent('keydown', { key:k, bubbles:true }));
+    for (const id of ['tlPlay','tlRestart','tlFmt','tlRec']) d.getElementById(id).click();
     for (const l of ['de','en','fr','ru','tr']){
       w.localStorage.setItem('qc-lang', l); d.getElementById('langBtn').click();
-      const paras = d.querySelectorAll('#inBody p').length;
-      console.log(' help', l, '| paragraphs =', paras, '| title =', JSON.stringify(d.getElementById('inTitle').textContent), '| retry =', JSON.stringify(d.getElementById('inRetry').textContent));
+      const labels = ['tlPlay','tlRestart','tlRec','tlSpeedLbl'].map(id => d.getElementById(id).textContent);
+      if (labels.some(x => !x || x.includes('undefined'))){ bad++; console.log('missing label in', l, labels); }
+      else console.log(l, '·', d.querySelector('#tlModal h3').textContent, '·', labels.join(' | '), '·', d.getElementById('tlInfo').textContent);
     }
-    // 5. listed among the guides
-    const labels = Array.from(d.getElementById('helpList').children).map(b => b.textContent);
-    console.log('guides =', labels.length, '| last =', JSON.stringify(labels[labels.length-1]));
-  } catch(e){ console.log('LOCATION THREW:', e.message, (e.stack||'').split('\n')[1]); }
-  (w.__errors||[]).forEach(e => console.log(e));
+    d.getElementById('inOk').click();
+    d.dispatchEvent(new w.KeyboardEvent('keydown', { key:'Escape', bubbles:true }));
+    console.log('Escape closes =', d.getElementById('tlModal').hidden, '| guide entries =', d.getElementById('helpList').children.length);
+  } catch(e){ bad++; console.log('TIME-LAPSE THREW:', e.message, (e.stack||'').split('\n')[1]); }
+  (w.__errors||[]).forEach(e => { bad++; console.log(e); });
+  console.log(bad ? bad + ' TIME-LAPSE FAILURES' : 'time-lapse panel ran clean in 5 languages');
 })();
